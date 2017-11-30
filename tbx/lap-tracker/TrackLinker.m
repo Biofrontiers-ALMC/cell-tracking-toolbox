@@ -110,6 +110,18 @@ classdef TrackLinker
             %  L = L.ASSIGNTOTRACK(I, D, 'nonewtracks') will assign the new
             %  object data D to existing tracks only, ignoring new tracks.
             
+            
+            %Check if data is empty. If it is, then do not assign but
+            %create new tracks
+            if numel(obj.TrackArray) == 0
+                
+                obj = obj.CreateNewTrack(frameIndex,...
+                    newData);
+                
+            end
+            
+            
+            
             %Make the cost matrix
             costMatrix = obj.MakeCostMatrix(newData);
             

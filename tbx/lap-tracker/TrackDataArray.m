@@ -46,8 +46,8 @@ classdef TrackDataArray
             
             if frameIndex > obj.Tracks(trackIndex).LastFrame || frameIndex < obj.Tracks(trackIndex).FirstFrame
                 obj.Tracks(trackIndex) = obj.Tracks(trackIndex).addFrame(frameIndex, trackData);
-            else
-                obj.Tracks(trackIndex) = obj.Tracks(trackIndex).updateFrame(frameIndex, trackData);
+%             else
+%                 obj.Tracks(trackIndex) = obj.Tracks(trackIndex).updateFrame(frameIndex, trackData);
             end
             
         end
