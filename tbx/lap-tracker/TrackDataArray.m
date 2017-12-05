@@ -4,6 +4,8 @@ classdef TrackDataArray
     properties (Access = private)
         
         Tracks  %Array of TrackData objects
+        Timestamps
+        TimestampUnit
         
     end
     
@@ -13,7 +15,30 @@ classdef TrackDataArray
         
     end
     
+    properties (Dependent)
+        
+        NumTracks
+        NumFrames
+        
+    end
+    
     methods
+        
+        function numTracks = get.NumTracks(obj)
+            
+            numTracks = numel(obj.Tracks);
+            
+        end
+        
+        function numFrames = get.NumFrames(obj)
+            
+            firstFrame = min([obj.Tracks.FirstFrame]);
+            
+            lastFrame = max([obj.Tracks.FirstFrame]);
+            
+            numFrames = lastFrame - firstFrame + 1;
+            
+        end
         
         function [obj, newTrackId] = addTrack(obj, frameIndex, trackData)
             %ADDTRACK  Add a track to the array
@@ -101,6 +126,45 @@ classdef TrackDataArray
             numTracks = numel(obj.Tracks);
             
         end
+        
+        function obj = setTimestamps(obj, tsIn, varargin)
+            %SETTIMESTAMPS  Set timestamp information
+            %
+            %  A = A.SETTIMESTAMPS(V) where V is a 1xN vector will set the
+            %  timestamp information to V. N must be equal to the number of
+            %  frames in the array.
+            %
+            %  A = A.SETTIMESTAMPS(T) where T is a number will set the
+            %  timestamp to (1:N) * T, i.e. T should be the time between
+            %  frames.
+            
+            if nargin == 1
+                %No timestamp units provided. Assume seconds.
+                tsUnits = 's';
+            else
+                tsUnits = varargin{1};
+            end
+            
+            if numel(tsIn) == obj.NumFrames
+                
+                obj.Timestamps = tsIn;
+                
+            elseif numel(tsIn) == 1
+                
+                obj.Timestamps = (1:obj.NumFrames) * tsIn;
+                
+            else
+                
+                error('TrackDataArray:setTimestamps:UnexpectedInputLength',...
+                    'Expected number of timestamps to match the number of frames (%d) or be equal to 1 to specify time between frames.',...
+                    obj.NumFrames);
+                
+            end
+            
+            obj.TimestampUnit = tsUnits;            
+            
+        end
+        
         
     end
     

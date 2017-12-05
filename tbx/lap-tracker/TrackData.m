@@ -10,10 +10,11 @@ classdef TrackData
     properties (Hidden)
         
         FrameIndex
+        Data
     end
     
     properties
-        Data
+        
         MotherIdx = NaN;
         DaughterIdxs = NaN;
     end
@@ -297,6 +298,27 @@ classdef TrackData
             plot(tt,yych15)
             ylabel('Channel 15')
             
+            
+        end
+        
+        function dataOut = getData(obj, reqData)
+            %GETDATA  Get specified tracked data
+            
+            if ~ismember(reqData, obj.TrackDataProps)
+                error('TrackData:getData:InvalidPropertyName',...
+                    '''%s'' is not a valid property name.',...
+                    reqData);
+            end
+            
+            %Initialize the output data vector
+            dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
+            
+            for iD = 1:obj.NumFrames
+                currData = obj.Data(iD).(reqData);
+                if ~isempty(currData)
+                    dataOut(iD,:) = currData;
+                end
+            end
             
         end
         
