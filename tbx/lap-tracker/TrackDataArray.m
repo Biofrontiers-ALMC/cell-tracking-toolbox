@@ -19,6 +19,7 @@ classdef TrackDataArray
         
         NumTracks
         NumFrames
+        MeanDeltaT
         
     end
     
@@ -37,6 +38,17 @@ classdef TrackDataArray
             lastFrame = max([obj.Tracks.FirstFrame]);
             
             numFrames = lastFrame - firstFrame + 1;
+            
+        end
+        
+        function meanDeltaT = get.MeanDeltaT(obj)
+            %Returns the mean time between frames
+            
+            if ~isempty(obj.Timestamps)
+                meanDeltaT = mean(diff(obj.Timestamps));
+            else
+                meanDeltaT = [];
+            end
             
         end
         
