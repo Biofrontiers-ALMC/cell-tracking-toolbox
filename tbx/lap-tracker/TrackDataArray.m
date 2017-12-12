@@ -6,6 +6,8 @@ classdef TrackDataArray
         Tracks  %Array of TrackData objects
         Timestamps
         TimestampUnit
+        PxLength
+        PxLengthUnit
         
     end
     
@@ -62,10 +64,12 @@ classdef TrackDataArray
             if isempty(obj.Tracks)
                 newTrackId = 1;
                 obj.Tracks = TrackData(frameIndex,trackData);
+                obj.Tracks(1).ID = newTrackId;
                 
             else
                 newTrackId = numel(obj) + 1;
                 obj.Tracks(newTrackId) = TrackData(frameIndex,trackData);
+                obj.Tracks(newTrackId).ID = newTrackId;
             end
             
         end
@@ -111,7 +115,7 @@ classdef TrackDataArray
             %  TrackData object to T.
             
             trackOut = obj.Tracks(trackIndex);
-            
+                        
         end
         
         function obj = deleteFrame(obj, trackIndex, frameIndex)
@@ -139,14 +143,14 @@ classdef TrackDataArray
             
         end
         
-        function obj = setTimestamps(obj, tsIn, varargin)
-            %SETTIMESTAMPS  Set timestamp information
+        function obj = setTimestampInfo(obj, tsIn, varargin)
+            %SETTIMESTAMPINFO  Set timestamp information
             %
             %  A = A.SETTIMESTAMPS(V) where V is a 1xN vector will set the
             %  timestamp information to V. N must be equal to the number of
             %  frames in the array.
             %
-            %  A = A.SETTIMESTAMPS(T) where T is a number will set the
+            %  A = A.SETTIMESTAMPINFO(T) where T is a number will set the
             %  timestamp to (1:N) * T, i.e. T should be the time between
             %  frames.
             
@@ -177,6 +181,37 @@ classdef TrackDataArray
             
         end
         
+        function [ts, tsUnits] = getTimestampInfo(obj)
+            %GETTIMESTAMPINFO  Get timestamp information
+            %
+            %  [T, U] = A.GETTIMESTAMPINFO will return timestamps as vector
+            %  T and units as string U.
+            
+            ts = obj.Timestamps;
+            tsUnits = obj.TimestampUnit;
+            
+        end
+        
+        function obj = setPxLengthInfo(obj, pxLength, varargin)
+            
+            obj.PxLength = pxLength;
+            
+            if ~isempty(varargin)
+                obj.PxLengthUnit = varargin{1};                
+            end
+            
+        end
+        
+        function [pxLength, pxUnits] = getPxLengthInfo(obj)
+            %GETPXLENGTHINFO  Get pixel length information
+            %
+            %  [L, U] = A.GETPXLENGTHINFO returns the length of each image
+            %  pixel L in physical units U.
+            
+            pxLength = obj.PxLength;
+            pxUnits = obj.PxLengthUnit;
+            
+        end
         
     end
     

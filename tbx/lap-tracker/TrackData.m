@@ -11,12 +11,15 @@ classdef TrackData
         
         FrameIndex
         Data
+        
     end
     
     properties
         
+        ID = 0;
         MotherIdx = NaN;
         DaughterIdxs = NaN;
+        
     end
     
     properties (Dependent)

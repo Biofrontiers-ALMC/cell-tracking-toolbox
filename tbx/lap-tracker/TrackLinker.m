@@ -455,6 +455,26 @@ classdef TrackLinker
             
         end
         
+        function obj = setTimestampInfo(obj, timeVec, timeUnits)
+            %SETTIMESTAMPINFO  Set timestamp information in the track array
+            %
+            %  L = L.SETTIMESTAMPINFO(T, U) sets the timestamp vector in
+            %  the track array to T and the units to U. U should be a
+            %  string.
+            %
+            %  Example:
+            %
+            %     bfr = BioformatsImage('data.nd2');
+            %
+            %     L = TrackLinker;
+            %
+            %     [T, U] = bfr.getTimestamps(1,1);
+            %     L = L.SETTIMESTAMPINFO(T, U);
+            
+            obj.TrackArray = obj.TrackArray.setTimestampInfo(timeVec, timeUnits);
+            
+        end
+        
     end
     
     methods (Hidden)
