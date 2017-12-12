@@ -304,8 +304,17 @@ classdef TrackData
             
         end
         
-        function dataOut = getData(obj, reqData)
+        function dataOut = getData(obj, reqData, varargin)
             %GETDATA  Get specified tracked data
+            %
+            %  D = T.GETDATA(P) will return the tracked property P as a
+            %  vector D, where each row corresponds to a timepoint.
+            %
+            %  D = T.GETDATA(P,'first') will return the property P at the
+            %  first timepoint.
+            %
+            %  D = T.GETDATA(P,'last') will return the property P at the
+            %  last timepoint.
             
             if ~ismember(reqData, obj.TrackDataProps)
                 error('TrackData:getData:InvalidPropertyName',...
@@ -313,14 +322,30 @@ classdef TrackData
                     reqData);
             end
             
-            %Initialize the output data vector
-            dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
-            
-            for iD = 1:obj.NumFrames
-                currData = obj.Data(iD).(reqData);
-                if ~isempty(currData)
-                    dataOut(iD,:) = currData;
+            if ~isempty(varargin)
+                
+                switch lower(varargin{1})
+                    
+                    case 'first'
+                        dataOut = obj.Data(1).(reqData);
+                        
+                        
+                    case 'last' 
+                        dataOut = obj.Data(end).(reqData);
+                        
                 end
+            else
+                
+                %Initialize the output data vector
+                dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
+                
+                for iD = 1:obj.NumFrames
+                    currData = obj.Data(iD).(reqData);
+                    if ~isempty(currData)
+                        dataOut(iD,:) = currData;
+                    end
+                end
+                
             end
             
         end

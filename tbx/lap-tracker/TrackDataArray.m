@@ -4,10 +4,18 @@ classdef TrackDataArray
     properties (Access = private)
         
         Tracks  %Array of TrackData objects
-        Timestamps
-        TimestampUnit
-        PxLength
-        PxLengthUnit
+        
+    end
+    
+    properties (SetAccess = private)
+        
+        filename = '';
+        FileMetadata = struct(...
+            'Timestamps', [], ...
+            'TimestampUnit', '',...
+            'PxSize', [], ...
+            'PxSizeUnit', '', ...
+            'ImgSize', [NaN, NaN]);
         
     end
     
@@ -155,19 +163,19 @@ classdef TrackDataArray
             %  frames.
             
             if nargin == 1
-                %No timestamp units provided. Assume seconds.
-                tsUnits = 's';
+                %No timestamp units provided
+                tsUnits = '';
             else
                 tsUnits = varargin{1};
             end
             
             if numel(tsIn) == obj.NumFrames
                 
-                obj.Timestamps = tsIn;
+                obj.FileMetadata.Timestamps = tsIn;
                 
             elseif numel(tsIn) == 1
                 
-                obj.Timestamps = (1:obj.NumFrames) * tsIn;
+                obj.FileMetadata.Timestamps = (1:obj.NumFrames) * tsIn;
                 
             else
                 
@@ -177,7 +185,7 @@ classdef TrackDataArray
                 
             end
             
-            obj.TimestampUnit = tsUnits;            
+            obj.FileMetadata.TimestampUnit = tsUnits;            
             
         end
         
@@ -187,17 +195,24 @@ classdef TrackDataArray
             %  [T, U] = A.GETTIMESTAMPINFO will return timestamps as vector
             %  T and units as string U.
             
-            ts = obj.Timestamps;
-            tsUnits = obj.TimestampUnit;
+            ts = obj.FileMetadata.Timestamps;
+            tsUnits = obj.FileMetadata.TimestampUnit;
             
         end
         
-        function obj = setPxLengthInfo(obj, pxLength, varargin)
+        function obj = setPxSizeInfo(obj, pxLength, varargin)
+            %SETPXSIZEINFO  Set pixel size information
+            %
+            %  A = A.SETPXSIZEINFO(L) will set the PxSize property of the
+            %  FileMetadata to L. 
+            %
+            %  A = A.SETPXSIZEINFO(L,U) also sets a string U representing
+            %  the unit of the property.
             
-            obj.PxLength = pxLength;
+            obj.FileMetadata.PxSize = pxLength;
             
             if ~isempty(varargin)
-                obj.PxLengthUnit = varargin{1};                
+                obj.FileMetadata.PxSizeUnit = varargin{1};                
             end
             
         end
@@ -208,8 +223,42 @@ classdef TrackDataArray
             %  [L, U] = A.GETPXLENGTHINFO returns the length of each image
             %  pixel L in physical units U.
             
-            pxLength = obj.PxLength;
-            pxUnits = obj.PxLengthUnit;
+            pxLength = obj.FileMetadata.PxLength;
+            pxUnits = obj.FileMetadata.PxLengthUnit;
+            
+        end
+        
+        function obj = setImgSize(obj, imgSize)
+            %SETIMGSIZE  Sets the image size in the file metadata
+            %
+            %  A = A.SETIMGSIZE([H W]) sets the image size to the height H
+            %  and width W.
+            
+            obj.FileMetadata.ImgSize = imgSize;
+            
+        end
+        
+        function obj = setFilename(obj, fn)
+            %SETFILENAME  Set filename property
+            %
+            %  The filename is linked to the dataset that this track data
+            %  array was created from.
+            %
+            %  A = A.SETFILENAME(F) sets the filename to F.
+            
+            if ~isempty(obj.filename)
+                %Warn if not empty
+                
+                warning('TrackDataArray:setFilename:FilenameAlreadyExists',...
+                    'The filename property is already set. Are you sure you want to change it?');
+                s = input('Change filename (Y = change, anything else will cancel)? ','s');
+                
+                if ~strcmpi(s,'y')
+                    return;
+                end
+            end
+            
+            obj.filename = fn;
             
         end
         

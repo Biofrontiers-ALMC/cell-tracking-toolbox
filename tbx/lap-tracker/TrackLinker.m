@@ -109,8 +109,7 @@ classdef TrackLinker
             %
             %  L = L.ASSIGNTOTRACK(I, D, 'nonewtracks') will assign the new
             %  object data D to existing tracks only, ignoring new tracks.
-            
-            
+                        
             %Check if data is empty. If it is, then do not assign but
             %create new tracks
             if numel(obj.TrackArray) == 0
@@ -475,6 +474,48 @@ classdef TrackLinker
             
         end
         
+        function obj = setPxSizeInfo(obj, pxSize, varargin)
+            %SEXPXSIZEINFO  Set pixel size information in the track array
+            %
+            %  L = L.SEXPXSIZEINFO(T, U) sets the pixel size to T and the
+            %  units to U. U should be a string, while T should be a 1x2 or
+            %  1x1 double.
+            %
+            %  Example:
+            %
+            %     bfr = BioformatsImage('data.nd2');
+            %
+            %     L = TrackLinker;
+            %
+            %     [T, U] = bfr.pxSize(1,1);
+            %     L = L.SETTIMESTAMPINFO(T, U);
+            
+            obj.TrackArray = obj.TrackArray.setPxSizeInfo(pxSize, varargin{:});
+            
+        end
+        
+        function obj = setImgSize(obj, imgSize)
+            %SETIMGSIZE  Set image size in the track array
+            %
+            %  A = A.SETIMGSIZE([H W]) sets the image size property in the
+            %  FileMetadata of the track array object.
+            
+            obj.TrackArray = obj.TrackArray.setImgSize(imgSize);  
+            
+        end
+        
+        function obj = setFilename(obj, fn)
+            %SETFILENAME  Set the filename property of the TrackDataArray
+            %
+            %  L = L.SETFILENAME(F) will set the filename property of the
+            %  TrackDataArray to F. 
+            %
+            %  Note: If the filename already exists, you will be prompted
+            %  to confirm the change as this could affect data integrity.
+            
+            obj.TrackArray = obj.TrackArray.setFilename(fn);
+            
+        end
     end
     
     methods (Hidden)
