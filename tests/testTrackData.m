@@ -1,4 +1,4 @@
-classdef test_TrackData < matlab.unittest.TestCase
+classdef testTrackData < matlab.unittest.TestCase
    
     methods (TestClassSetup)
         
@@ -250,6 +250,23 @@ classdef test_TrackData < matlab.unittest.TestCase
             TestCase.verifyEqual([trackObj.Data.Area],[10, 20]);
         end
         
+        function renameField(TestCase)
+           
+            trackObj = TrackData(5, struct('Area', 5));
+            trackObj = trackObj.addFrame(6, struct('Area', 10));
+            trackObj = trackObj.addFrame(7, struct('Area', 20));
+            trackObj = trackObj.addFrame(8, struct('Area', 40));
+            trackObj = trackObj.addFrame(9, struct('Area', 80));
+            
+            TestCase.verifyTrue(ismember(trackObj.TrackDataProps,'Area'))
+            
+            trackObj = trackObj.renameField('Area','NewField');
+            
+            TestCase.verifyTrue(ismember(trackObj.TrackDataProps,'NewField'))
+            TestCase.verifyTrue(~ismember(trackObj.TrackDataProps,'Area'))
+            TestCase.verifyEqual(trackObj.Data(5).NewField, 80)
+                  
+        end
        
     end
     

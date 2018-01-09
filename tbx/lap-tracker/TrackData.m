@@ -4,13 +4,26 @@ classdef TrackData
     %  T = TRACKDATA will create an empty TrackData object.
     %
     %  TrackData Properties:
+    %     ID             - Track ID number
+    %     MotherIdx      - Mother track ID (expect NaN if no mother track)
+    %     DaughterIdxs   - Daughter track IDs (expect NaN if no daughters)
+    %     TrackDataProps - Names of tracked data fields
+    %     FirstFrame     - Frame number that track was created
+    %     LastFrame      - Frame number that track was last updated
+    %     NumFrames      - Length of track in frames
     %
     %  TrackData Methods:
+    %     addFrame    - Add a frame to the track
+    %     deleteFrame - Delete a frame from the track
+    %     getData     - Get a specific data field or frame
+    %     renameField - Rename a data field
+    %
+    %  See also: TrackDataArray
     
     properties (Hidden)
         
-        FrameIndex
-        Data
+        FrameIndex  %Frame numbers corresponding to the data entries
+        Data        %Each element corresponds to data from a frame
         
     end
     
@@ -48,7 +61,9 @@ classdef TrackData
                 
             end
             
-        end
+        end  %Constructor
+        
+        %--- Get/Set functions
         
         function numFrames = get.NumFrames(obj)
             %GET.NUMFRAMES  Get number of frames
@@ -91,6 +106,8 @@ classdef TrackData
             
         end
         
+        %--- Frame functions
+        
         function obj = addFrame(obj, tFrame, data)
             %ADDFRAME  Add data for a frame
             %
@@ -117,8 +134,6 @@ classdef TrackData
             %
             %    T.Data(2).Area = []
             %    T.Data(2).Centroid = [10 20]
-            %
-            %  See also: TrackData.updateTrack
             
             %Validate the frame number
             if ~isnumeric(tFrame)
@@ -202,8 +217,6 @@ classdef TrackData
             %
             %    %Delete frames 1 and 4
             %    trackOb = trackObj.deleteFrame([1, 4]);
-            %
-            %  See also: TrackData.updateTrack
             
             %Validate the frame index input
             if isnumeric(tFrame)
@@ -261,48 +274,8 @@ classdef TrackData
 
             
         end
-                
-        function plot(obj)
-            
-            figure(1);
-            tt = obj.FirstFrame:obj.LastFrame;
-            yy = zeros(1,obj.NumFrames);
-            for ii = 1:obj.NumFrames
-                yy(ii) = [obj.Data(ii).channel1.TotalIntensity]./[obj.Data(ii).channel15.TotalIntensity];
-            end
-            plot(tt,yy)
-            title('Ratio')
-            hold on
-            
-            figure(2);
-            tt = obj.FirstFrame:obj.LastFrame;
-            yych1 = zeros(1,obj.NumFrames);
-            for ii = 1:obj.NumFrames
-                yych1(ii) = [obj.Data(ii).channel1.TotalIntensity]./[obj.Data(ii).Area];
-            end
-            plot(tt,yych1)
-            title('Channel 1')
-            hold on
-            
-            figure(3);
-            yych15 = zeros(1,obj.NumFrames);
-            for ii = 1:obj.NumFrames
-                yych15(ii) = [obj.Data(ii).channel15.TotalIntensity]./[obj.Data(ii).Area];
-            end
-            plot(tt,yych15)
-            title('Channel 15')
-            hold on
-            
-            figure;
-            yyaxis left
-            plot(tt,yych1)
-            ylabel('Channel 1')
-            yyaxis right
-            plot(tt,yych15)
-            ylabel('Channel 15')
-            
-            
-        end
+        
+        %--- Data functions
         
         function dataOut = getData(obj, reqData, varargin)
             %GETDATA  Get specified tracked data
@@ -347,6 +320,23 @@ classdef TrackData
                 end
                 
             end
+            
+        end
+        
+        function obj = renameField(obj, oldFieldname, newFieldname)
+            %RENAMEFIELD  Rename a tracked data field
+            %
+            %  T = T.RENAMEFIELD(O, N) renames the tracked data field O to
+            %  N.
+            %
+            %  Example:
+            %
+            %    T = T.RENAMEFIELD('MajorAxisLength','CellLength') will
+            %    rename the tracked data field 'MajorAxisLength' to
+            %    'CellLength'
+            
+            [obj.Data.(newFieldname)] = obj.Data.(oldFieldname);
+            obj.Data = rmfield(obj.Data, oldFieldname);
             
         end
         

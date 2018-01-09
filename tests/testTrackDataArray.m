@@ -1,4 +1,4 @@
-classdef test_TrackDataArray < matlab.unittest.TestCase
+classdef testTrackDataArray < matlab.unittest.TestCase
    
     methods (TestClassSetup)
         

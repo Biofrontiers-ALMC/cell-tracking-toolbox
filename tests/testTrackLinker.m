@@ -1,4 +1,4 @@
-classdef test_TrackLinker < matlab.unittest.TestCase
+classdef testTrackLinker < matlab.unittest.TestCase
     
     properties
         
