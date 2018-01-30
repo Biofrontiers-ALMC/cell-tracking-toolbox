@@ -70,7 +70,7 @@ classdef TrackDataArray
             
             firstFrame = min([obj.Tracks.FirstFrame]);
             
-            lastFrame = max([obj.Tracks.FirstFrame]);
+            lastFrame = max([obj.Tracks.LastFrame]);
             
             numFrames = lastFrame - firstFrame + 1;
             
