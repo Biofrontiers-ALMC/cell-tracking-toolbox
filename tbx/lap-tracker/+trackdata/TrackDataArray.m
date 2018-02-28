@@ -313,6 +313,52 @@ classdef TrackDataArray
             
         end
         
+        %--- Export data
+        function exportToCSV(obj, fn)
+            
+            fid = fopen(fn, 'w');
+            
+            fprintf(fid, 'TID, MotherIdx, DaughterIdx1, DaughterIdx2, Frame, ');
+            
+            fprintf(fid,'%s ,', obj.TrackedDataFields{1:end-1});
+            fprintf(fid,'%s \n', obj.TrackedDataFields{end});
+            
+            for iTrack = 1:numel(obj)
+                
+                ct = obj.getTrack(iTrack);
+                
+                fprintf(fid, '%d, %d, %d, %d', ct.ID, ct.MotherIdx, ct.DaughterIdxs(1), ct.DaughterIdxs(end));
+                
+                for iF = 1:ct.NumFrames
+                    
+                    if iF > 1
+                        fprintf(fid, ', , , ');
+                    end
+                    
+                    fprintf(fid, ', %d', ct.FrameIndex(iF));
+                    
+                    for iP = 1:numel(obj.TrackedDataFields)
+                        
+                        if numel(ct.Data(iF).(obj.TrackedDataFields{iP})) > 1
+                            fprintf(fid, ', %%');
+                            
+                        else
+                            fprintf(fid, ', %d', ct.Data(iF).(obj.TrackedDataFields{iP}));
+                            
+                        end
+                    end
+                    fprintf(fid, '\n');
+                end
+                fprintf(fid, '\n');
+                
+            end
+            
+            fclose(fid);
+            
+            
+        end
+        
+        
     end
     
 end
