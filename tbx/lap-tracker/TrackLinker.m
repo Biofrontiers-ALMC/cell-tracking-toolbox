@@ -119,8 +119,6 @@ classdef TrackLinker
                 
             end
             
-            
-            
             %Make the cost matrix
             costMatrix = obj.MakeCostMatrix(newData);
             
