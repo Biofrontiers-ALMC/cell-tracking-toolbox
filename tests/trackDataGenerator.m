@@ -12,18 +12,18 @@ classdef trackDataGenerator
         
         function outputData = generateTracks(obj, numTracks, varargin)
             
-            outputData = struct('ID',{},...
-                'SeriesID', {}, 'MotherTrackID', {}, 'DaughterTrackID', {},...
-                'Frames',{}, ...
-                'Data', struct('Centroid', {}, 'Area', {}, 'Intensity', {}));
+            outputData = struct('trackID',{},...
+                'seriesID', {}, 'motherTrackID', {}, 'daughterTrackIDs', {},...
+                'frames',{}, ...
+                'data', struct('Centroid', {}, 'Area', {}, 'Intensity', {}));
             
             %--- Generate tracks ---%
             for ii = 1:numTracks
                 
-                outputData(ii).ID = ii;
-                outputData(ii).SeriesID = 1;
-                outputData(ii).MotherTrackID = 0;
-                outputData(ii).DaughterTrackID = 0;
+                outputData(ii).trackID = ii;
+                outputData(ii).seriesID = 1;
+                outputData(ii).motherTrackID = 0;
+                outputData(ii).daughterTrackIDs = [0 0];
                 
                 if numel(obj.numFrames) > 1
                     trackNumFrames = randsample(obj.numFrames,1);
@@ -37,12 +37,12 @@ classdef trackDataGenerator
                     trackFirstFrame = obj.firstFrame;
                 end
                 
-                outputData(ii).Frames = trackFirstFrame:trackFirstFrame + (trackNumFrames - 1);
+                outputData(ii).frames = trackFirstFrame:trackFirstFrame + (trackNumFrames - 1);
                 
                 for iFrame = 1:trackNumFrames
-                    outputData(ii).Data(iFrame).Centroid = round(rand(1, 2) * 2048);
-                    outputData(ii).Data(iFrame).Area = round(rand(1) * 1000);
-                    outputData(ii).Data(iFrame).Intensity = rand(1) * 65535;
+                    outputData(ii).data(iFrame).Centroid = round(rand(1, 2) * 2048);
+                    outputData(ii).data(iFrame).Area = round(rand(1) * 1000);
+                    outputData(ii).data(iFrame).Intensity = rand(1) * 65535;
                 end
             end
             
