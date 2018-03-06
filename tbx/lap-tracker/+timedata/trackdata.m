@@ -66,6 +66,10 @@ classdef trackdata
                 
             end
             
+            for iN = 1:numel(obj)
+                obj(iN).trackID = iN; %#ok<AGROW>
+            end
+            
         end
         
         function firstFrame = get.firstFrame(obj)
@@ -340,46 +344,96 @@ classdef trackdata
             %  in the data format specified by the filename extension.
             %
             %  EXPORT(OBJ, FILENAME, EXT) is an alternative way to specify
-            %  a file format extension than is different than the filename
-            %
-            %  Example: EXPORT(OBJ, 'output.txt', 'csv') will write to
+            %  a file format extension than is different than the filename.
+            %  For example, EXPORT(OBJ, 'output.txt', 'csv') will write to
             %  output.txt but using the CSV format.
+            %
+            %  EXPORT(OBJ, FILENAME, 'append') will append the data to the
+            %  specified file if it exists. By default, the code will
+            %  overwrite a file if FILENAME exists.
+            %
+            %  EXPORT(OBJ, FILENAME, '-o') will cause the code to
+            %  automatically overwrite FILENAME if it exists. By default,
+            %  the code will prompt the user to confirm whether the
+            %  existing file should be overwritten.
             
-            %Parse the variable input            
-            if isempty(varargin)
-                [~, ~, fext] = fileparts(filename);
-            else
-                fext = varargin{1};
+            %Set default file permissions to overwrite
+            filePerm = 'w';
+            
+            %Should the user be prompted to overwrite the file?
+            overwriteFlag = false;
+            
+            %Get the file extension from the filename
+            [~, ~, fext] = fileparts(filename);
+            
+            %Parse the variable input
+            while ~isempty(varargin)
+                
+                if strcmpi(varargin{1}, 'append')
+                    %Change file permission to append
+                    filePerm = 'a';
+                elseif strcmpi(varargin{1}, '-o')
+                    %Set autoOverwrite to true
+                    overwriteFlag = true;                    
+                else
+                    fext = varargin{1};
+                end
+                
+                varargin(1) = [];
             end
-                        
-            %Strip any non-word/digits
+            
+            %Check if the file currently exists
+            fileExists = exist(filename,'file');
+            
+            if fileExists && (~overwriteFlag || ~strcmpi(filePerm,'a'))
+                owi = input(sprintf('''%s'' already exists. Do you want to overwrite (Y = Yes)? ', filename),'s');
+                
+                if ~ismember(lower(owi), {'y', 'yes'})
+                    error('trackdata:export:FileExists',...
+                        'File exists. Please choose a different filename.');
+                end
+            end           
+            
+            %Strip any non-word/digits from the file extension
             fext = regexprep(fext, '\W*','');
             
-            %Set the file permissions
-            filePerm = 'w'; %Overwrite file if it exists
-            
-            if numel(varargin) == 2
-                if strcmpi(varargin{2}, 'append')
-                    filePerm = 'a'; %Append to file if it exists
-                end
+            %Get the list of tracked data
+            if ~isempty(obj(1).data)
+                trackedData = fieldnames(obj(1).data);
+            else
+                trackedData = '';
             end
             
             switch lower(fext)
                 
                 case 'csv'
+                    %CSV file definition
+                    %
+                    %  Headers: trackID, seriesID, motherTrackID,
+                    %  daughterTrackIDs, Frame, [Tracked Data]
+                    %
+                    %  trackID, seriesID, motherTrackID, and
+                    %  daughterTrackIDs are only populated for the first
+                    %  line of a track.
                     
                     fid = fopen(filename, filePerm);
                     
-                    trackedData = fieldnames(obj(1).data);
+                    if fid == -1
+                        error('trackdata:export:ErrorOpeningFile',...
+                            'Could not open ''%s''. Is it open in a different application?',...
+                            filename);
+                    end
                     
-                    %Write the header
-                    fprintf(fid, 'trackID, seriesID, motherTrackID, daughterTrackIDs, Frame');
-                    fprintf(fid, ', %s', trackedData{:});  %Write the tracked data fieldnames
-                    fprintf(fid, '\n');
+                    %Write the header unless appending to an existing file
+                    if ~fileExists || ~strcmpi(filePerm, 'a')
+                        fprintf(fid, 'trackID, seriesID, motherTrackID, daughterTrackIDs, Frame');
+                        fprintf(fid, ', %s', trackedData{:});  %Write the tracked data fieldnames
+                        fprintf(fid, '\n');
+                    end
                     
                     for iTrack = 1:numel(obj)
                     
-                        fprintf(fid, '%d, %d, %d, %d %d', ...
+                        fprintf(fid, '%d, %d, %d, [%d %d]', ...
                             obj(iTrack).trackID, ...
                             obj(iTrack).seriesID, ...
                             obj(iTrack).motherTrackID, ...
@@ -410,12 +464,76 @@ classdef trackdata
                             fprintf(fid, '\n');
                             
                         end
-                        fprintf(fid, '\n');
                         
                     end
                     
                     fclose(fid);
-                                    
+                                  
+                case 'xml'
+                    %XML document specification
+                    %
+                    %  <TrackDataArray>
+                    %    <Metadata/>
+                    %    <track trackID = ID>
+                    %       <motherTrackID>ID<motherTrackID>
+                    %       <daughterTrackIDs>ID<daughterTrackIDs>
+                    %       <frame frameIndex = 1>
+                    %           <data>
+                    %           </data>
+                    %       </frame>
+                    %    </track>
+                    %  </TrackDataArray>
+                    %
+                    
+                    %TODO APPEND
+                        docNode = com.mathworks.xml.XMLUtils.createDocument('TrackDataArray');
+                        
+                        %Create top level array
+                        docArray = docNode.getDocumentElement;
+             
+                    
+                    %Can fill file metadata in attributes
+                    
+                    for iTrack = 1:numel(obj)
+                        currTrackNode = docNode.createElement('track');
+                        currTrackNode.setAttribute('trackID', int2str(obj(iTrack).trackID));
+                    
+                        mNode = docNode.createElement('motherTrackID');
+                        mNode.appendChild(docNode.createTextNode(int2str(obj(iTrack).motherTrackID)));
+                        currTrackNode.appendChild(mNode);
+                        
+                        dNode = docNode.createElement('daughterTrackIDs');
+                        dNode.appendChild(docNode.createTextNode(mat2str(obj(iTrack).daughterTrackIDs)));
+                        currTrackNode.appendChild(dNode);
+                                               
+                        for iT = 1:obj(iTrack).numFrames
+                    
+                            fNode = docNode.createElement('frame');
+                            fNode.setAttribute('index', int2str(obj(iTrack).frames(iT)));
+                    
+                            for iP = 1:numel(trackedData)
+                    
+                                currP = docNode.createElement(trackedData{iP});
+                                currP.appendChild( docNode.createTextNode(mat2str(obj(iTrack).data(iT).(trackedData{iP}))) );
+                                fNode.appendChild(currP);
+                            end
+                            currTrackNode.appendChild(fNode);
+                    
+                        end
+                    
+                        docArray.appendChild(currTrackNode);
+                    
+                    end
+                    
+                    xmlwrite(filename,docNode);
+                    
+                case 'json'
+
+                    fid = fopen(filename, filePerm);
+                    fprintf(fid, '%s', jsonencode(track2struct(obj)));
+                    fclose(fid);
+                    
+                    
                 otherwise 
                     
                     error('trackdata:export:UnsupportedFileFormat',...
@@ -424,30 +542,70 @@ classdef trackdata
             end
             
         end
-        
 
     end
     
     methods (Static)
        
-        function obj = import(varargin)
+        function obj = struct2track(dataIn)
+            %STRUCT2TRACK  Creates a trackdata object from a struct
+            
+            if ~isstruct(dataIn)
+                error('trackdata:struct2track:InputNotStruct',...
+                    'Expected input to be a struct.')                
+            end
+            
+            obj = timedata.trackdata(numel(dataIn));
+            
+            for iTrack = 1:numel(dataIn)
+                obj(iTrack).trackID = dataIn(iTrack).trackID;
+                obj(iTrack).seriesID = dataIn(iTrack).seriesID;
+                obj(iTrack).motherTrackID = dataIn(iTrack).motherTrackID;
+                obj(iTrack).daughterTrackIDs = dataIn(iTrack).daughterTrackIDs;
+                
+                obj(iTrack).data = dataIn(iTrack).data;
+                obj(iTrack).frames = dataIn(iTrack).frames;
+            end
+            
+        end
+                
+        function obj = import(filename, varargin)
             %IMPORT  Imports data into a trackdata object
             %
-            %  OBJ = timedata.trackdata.IMPORT(S) will import data from a
-            %  struct into a trackdata object. If S has multiple tracks,
-            %  OBJ will be an array of trackdata objects.
+            %  OBJ = timedata.trackdata.IMPORT(FILENAME) will import data
+            %  from the file specified.
             
-            obj = timedata.trackdata(numel(varargin{1}));
-            
-            for iTrack = 1:numel(varargin{1})
-                obj(iTrack).trackID = varargin{1}(iTrack).trackID;
-                obj(iTrack).seriesID = varargin{1}(iTrack).seriesID;
-                obj(iTrack).motherTrackID = varargin{1}(iTrack).motherTrackID;
-                obj(iTrack).daughterTrackIDs = varargin{1}(iTrack).daughterTrackIDs;
-                
-                obj(iTrack).data = varargin{1}(iTrack).data;
-                obj(iTrack).frames = varargin{1}(iTrack).frames;
+            %Validate the filename
+            if ~exist(filename,'file')
+                error('trackdata:import:FileNotFound', ...
+                    'Could not find ''%s'' on the current path.',...
+                    filename);                
             end
+            
+            %Get file extension
+            [~, ~, fext] = fileparts(filename);
+            
+            %Parse variable inputs
+            while ~isempty(varargin)
+                fext = varargin{1};
+                varargin(1) = [];
+            end
+                        
+            %Strip any non-word/digits from the file extension
+            fext = regexprep(fext, '\W*','');
+            
+            switch lower(fext)
+                
+                case 'json'
+                    
+                    obj = timedata.trackdata.struct2track(jsondecode(fileread(filename)));
+                    
+                otherwise
+                    error('trackdata:import:UnsupportedFileFormat',...
+                        '''%s'' is currently unsupported.', fext);
+            
+            end
+            
             
         end
         
@@ -455,152 +613,6 @@ classdef trackdata
     
 end
 
-
-% % fn = 'seq0000_xy4_crop_2_series1.mat';
-% % 
-% % load(fn);
-% % 
-% % fn = fn(1:end-4);
-% % 
-% % %% Export to CSV
-% % 
-% % fid = fopen([fn,'.csv'], 'w');
-% % 
-% % fprintf(fid, 'TID, MotherIdx, DaughterIdx1, DaughterIdx2, Frame, ');
-% % 
-% % fprintf(fid,'%s ,', trackArray.TrackedDataFields{1:end-1});
-% % fprintf(fid,'%s \n', trackArray.TrackedDataFields{end});
-% %         
-% % for iTrack = 1:numel(trackArray)
-% %     
-% %     ct = trackArray.getTrack(iTrack);
-% %     
-% %     fprintf(fid, '%d, %d, %d, %d', ct.ID, ct.MotherIdx, ct.DaughterIdxs(1), ct.DaughterIdxs(end));
-% %     
-% %     for iF = 1:ct.NumFrames
-% %         
-% %         if iF > 1
-% %             fprintf(fid, ', , , ');
-% %         end
-% %         
-% %         fprintf(fid, ', %d', ct.FrameIndex(iF));
-% %         
-% %         for iP = 1:numel(trackArray.TrackedDataFields)
-% %             
-% %                 if numel(ct.Data(iF).(trackArray.TrackedDataFields{iP})) > 1
-% %                     fprintf(fid, ', %%');
-% %                     
-% %                 else
-% %                     fprintf(fid, ', %d', ct.Data(iF).(trackArray.TrackedDataFields{iP}));
-% %                     
-% %                 end
-% %         end
-% %         fprintf(fid, '\n');
-% %     end
-% %     fprintf(fid, '\n');
-% %     
-% % end
-% % 
-% % fclose(fid);
-% % 
-% % %% Export to XML
-% % 
-% % docNode = com.mathworks.xml.XMLUtils.createDocument('TrackArray');
-% % 
-% % %Create top level array
-% % docArray = docNode.getDocumentElement;
-% % 
-% % %Can fill file metadata in attributes
-% % 
-% % for iTrack = 1:numel(trackArray)
-% %     
-% %     %Create track elememnt
-% %     ct = trackArray.getTrack(iTrack);
-% %     
-% %     currTrackNode = docNode.createElement('track');
-% %     currTrackNode.setAttribute('ID', int2str(ct.ID));
-% %     
-% %     mNode = docNode.createElement('MotherIdx');
-% %     mNode.appendChild(docNode.createTextNode(int2str(ct.MotherIdx)));
-% %     
-% %     dNode = docNode.createElement('DaughterIdxs');
-% %     dNode.appendChild(docNode.createTextNode(mat2str(ct.DaughterIdxs)));
-% %     
-% %     currTrackNode.appendChild(mNode);  
-% %     currTrackNode.appendChild(dNode);  
-% %         
-% %     for iT = 1:ct.NumFrames
-% %         
-% %         fNode = docNode.createElement('Frame');
-% %         fNode.setAttribute('Index', int2str(ct.FrameIndex(iT)));
-% %             
-% %         for iP = 1:numel(ct.TrackDataProps)
-% %             
-% %             currP = docNode.createElement(ct.TrackDataProps{iP});
-% %             
-% %             %Skip pixelidxlist and centroid just to keep the file size the
-% %             %same
-% %             switch ct.TrackDataProps{iP}
-% %                 
-% %                 case 'PixelIdxList'
-% %                     currP.appendChild( docNode.createTextNode('%%') );
-% %                     
-% %                 case 'Centroid'
-% %                     currP.appendChild( docNode.createTextNode('%%') );
-% %                     
-% %                 otherwise                   
-% %                     
-% %                     currP.appendChild( docNode.createTextNode(mat2str(ct.Data(iT).(ct.TrackDataProps{iP}))) );
-% %             
-% %             end
-% %             fNode.appendChild(currP);            
-% %         end
-% %         currTrackNode.appendChild(fNode);
-% %         
-% %     end
-% %             
-% %     docArray.appendChild(currTrackNode);
-% %         
-% % end 
-% % 
-% % xmlwrite([fn,'.xml'],docNode);
-% % 
-% % %% Export to JSON
-% % 
-% % %Convert to struct
-% % tempStruct = struct;
-% % 
-% % for iTrack = 1:numel(trackArray)
-% %     
-% %     ct = trackArray.getTrack(iTrack);
-% %     
-% %     tempStruct(iTrack).ID = ct.ID;
-% %     tempStruct(iTrack).MotherIdx = ct.MotherIdx;
-% %     tempStruct(iTrack).DaughterIdx = ct.DaughterIdxs;
-% %         
-% %     tempStruct(iTrack).FrameIdx = ct.FrameIndex;
-% %     
-% %     for iP = 1:numel(trackArray.TrackedDataFields)
-% %         
-% %         switch ct.TrackDataProps{iP}
-% %             
-% %             case 'PixelIdxList'
-% %                 tempStruct(iTrack).PixelIdxList = '%%';
-% %                 
-% %             case 'Centroid'
-% %                 tempStruct(iTrack).Centroid = '%%';
-% %             
-% %             otherwise
-% %                 tempStruct(iTrack).(ct.TrackDataProps{iP}) = cat(1,ct.Data.(ct.TrackDataProps{iP}));
-% %         end
-% %     end
-% %     
-% % end
-% % 
-% % fid = fopen([fn, '.json'], 'w');
-% % fprintf(fid, '%s', jsonencode(tempStruct));
-% % fclose(fid);
-% % 
 % % %% Export to HD5
 % % 
 % % hd5FN = [fn, '.h5'];

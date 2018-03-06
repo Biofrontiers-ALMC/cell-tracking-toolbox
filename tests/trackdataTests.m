@@ -2,12 +2,14 @@ classdef trackdataTests < matlab.unittest.TestCase
     
     methods (Test)
         
-        function construct_initializeEmpty(TestObj)
+        function construct_initializeEmpty_haveSequentialtrackIDs(TestObj)
             
             AA = timedata.trackdata(10);
             
             TestObj.verifyEqual(numel(AA), 10);
             TestObj.verifyEqual(size(AA), [1, 10]);
+            
+            TestObj.verifyEqual([AA.trackID], uint32(1:10));
             
         end
         
@@ -314,20 +316,14 @@ classdef trackdataTests < matlab.unittest.TestCase
             
         end
         
-        function export_exportToStruct_StructDataEqualsTestData(TestObj)
+        function track2struct_exportToStruct_StructDataEqualsTestData(TestObj)
             
             %Generate test data
             TDG = trackDataGenerator;
             testData = generateTracks(TDG,10);
             
             %Initialize a trackdata array
-            AA = timedata.trackdata(10);
-            
-            for iTrack = 1:numel(AA)
-                for ii = 1:numel(testData(iTrack).frames)
-                    AA(iTrack) = AA(iTrack).addFrame(testData(iTrack).frames(ii), testData(iTrack).data(ii));
-                end
-            end
+            AA = timedata.trackdata.struct2track(testData);
             
             %Export the data into a struct
             testOutput = track2struct(AA);
@@ -339,12 +335,12 @@ classdef trackdataTests < matlab.unittest.TestCase
             end
         end
         
-        function import_fromStruct_newTrackdataEqualsTestData(TestObj)
+        function struct2track_fromStruct_newTrackdataEqualsTestData(TestObj)
             
             TDG = trackDataGenerator;
             testData = generateTracks(TDG, 10);
             
-            AA = timedata.trackdata.import(testData);
+            AA = timedata.trackdata.struct2track(testData);
             
             TestObj.assertClass(AA, 'timedata.trackdata');
             TestObj.assertEqual(numel(AA), 10);
