@@ -196,78 +196,109 @@ classdef trackdata
         function obj = delFrame(obj, framesToDel)
             %DELFRAME  Deletes the specified frame
             %
-            %  delFrame(T, F) will delete frame F from the trackdata
-            %  object. If F is the first or last frame, the frame index
-            %  will be updated accordingly. Otherwise, the frame data is
-            %  emptied, but the frame index is kept the same.
-            
-            %Validate the input
-            if isnumeric(framesToDel)
-                if ~(all(framesToDel >= obj.firstFrame & framesToDel <= obj.lastFrame))
-                    error('trackdata:delFrame:frameIndexInvalid',...
-                        'Frame numbers to be deleted should be between %d (first frame) and %d (last frame).',...
-                        obj.firstFrame, obj.lastFrame);
-                end
-                
-            elseif ischar(tFrame)
-                
-                if strcmpi(framesToDel, 'first')
-                    framesToDel = obj.firstFrame;
-                    
-                elseif strcmpi(framesToDel, 'last')
-                    framesToDel = obj.lastFrame;
-                    
-                else
-                    error('trackdata:delFrame:InvalidCharInput',...
-                        'Expected the input to be ''first'' or ''last''');
-                end
-                
-            else
-                error('trackdata:delFrame:InvalidInput',...
-                    'Expected the frame index to be numerical,''first'' or ''last''');
-            end
-
-            %Sort the indices in descending order. This will ensure that
-            %when deleting from the end of the array, the data will be
-            %deleted sequentially (i.e. delFrame(T, 7:10) will make the new
-            %first frame number = 6).
+            %  OBJ = DELFRAME(OBJ, F) will delete frame F from the
+            %  trackdata object. F can be either a vector of frame indices
+            %  to delete, or 'first' or 'last' to indicate whether the
+            %  first or last frame respectively.
             %
-            %A 'while' loop is in place to handle deletion of empty frames
-            %when the indices are from the start. The reason I wrote the
-            %code this way is to favor faster deletion from the end of the
-            %track (which is performed during mitosis detection)
-            framesToDel = sort(framesToDel, 'descend');
+            %  If T is an object array, frame F will be removed from each
+            %  object in T. To delete a frame from a specific track,
+            %  specify the track by indexing e.g. T(5) = DELFRAME(T(5), F).
+            %
+            %  The deletion will try to maintain the smallest variable size
+            %  possible. For example, if F contains a sequence of numbers
+            %  which connect to the first or last frame in the track, the
+            %  data structure containing those frames will be shortened. 
+            %
+            %  Instead, if F specifies frames in the middle of the track,
+            %  the data for those frames will be emptied (i.e. the data
+            %  array will still exist, but the values are empty). This will
+            %  allow these data points to be interpolated if necessary.
+            %
+            %  Examples:
+            %
+            %  If OBJ is a track containing data from frames 1 to 10:
+            %
+            %  OBJ = DELFRAME(OBJ, 1:3) will return a track that starts
+            %  from frame 4 (i.e. OBJ.firstFrame = 4).
+            %
+            %  OBJ = DELFRAME(OBJ, 7:10) will return a track that stops
+            %  at frame 6  (i.e. OBJ.lastFrame = 6).
+            %
+            %  OBJ = DELFRAME(OBJ, 7) will return a track that has the same
+            %  length, but frame 7 will be empty.
+            %
             
-            %Convert the frame index into the index for the data array
-            dataInd = framesToDel - obj.firstFrame + 1;
-            
-            %Delete the data
-            for iDel = 1:numel(framesToDel)
-                if framesToDel(iDel) == obj.firstFrame
-                    obj.frames(1) = [];
-                    obj.data(1) = [];
-                    
-                    %Remove empty frames from the start
-                    while all(structfun(@isempty ,obj.data(1)))
-                        obj.frames(1) = [];
-                        obj.data(1) = [];
+            for iTrack = 1:numel(obj)
+                
+                %Validate the frames to delete
+                if isnumeric(framesToDel)
+                    if ~(all(framesToDel >= obj(iTrack).firstFrame & framesToDel <= obj(iTrack).lastFrame))
+                        warning('trackdata:delFrame:frameIndexInvalid',...
+                                'Frame numbers to be deleted should be between %d (first frame) and %d (last frame).',...
+                                obj(iTrack).firstFrame, obj(iTrack).lastFrame);
+                        continue;
                     end
                     
-                elseif framesToDel(iDel) == obj.lastFrame
-                    obj.frames(end) = [];
-                    obj.data(end) = [];
+                elseif ischar(tFrame)
+                    
+                    if strcmpi(framesToDel, 'first')
+                        framesToDel = obj(iTrack).firstFrame;
+                        
+                    elseif strcmpi(framesToDel, 'last')
+                        framesToDel = obj(iTrack).lastFrame;
+                        
+                    else
+                        error('trackdata:delFrame:InvalidCharInput',...
+                            'Expected the input to be ''first'' or ''last''');
+                    end
                     
                 else
-                    
-                    fn = fieldnames(obj.data(dataInd(iDel)))';
-                    fn{2, 1} = cell(1);
-                    
-                    %Make the data empty
-                    obj.data(dataInd(iDel)) = struct(fn{:});
-
+                    error('trackdata:delFrame:InvalidInput',...
+                        'Expected the frame index to be numerical,''first'' or ''last''');
+                end
+                
+                %Sort the indices in descending order. This will ensure that
+                %when deleting from the end of the array, the data will be
+                %deleted sequentially (i.e. delFrame(T, 7:10) will make the new
+                %first frame number = 6).
+                %
+                %A 'while' loop is in place to handle deletion of empty frames
+                %when the indices are from the start. The reason I wrote the
+                %code this way is to favor faster deletion from the end of the
+                %track (which is performed during mitosis detection)
+                framesToDel = sort(framesToDel, 'descend');
+                
+                %Convert the frame index into the index for the data array
+                dataInd = framesToDel - obj(iTrack).firstFrame + 1;
+                
+                %Delete the data
+                for iDel = 1:numel(framesToDel)
+                    if framesToDel(iDel) == obj(iTrack).firstFrame
+                        obj(iTrack).frames(1) = [];
+                        obj(iTrack).data(1) = [];
+                        
+                        %Remove empty frames from the start
+                        while all(structfun(@isempty ,obj(iTrack).data(1)))
+                            obj(iTrack).frames(1) = [];
+                            obj(iTrack).data(1) = [];
+                        end
+                        
+                    elseif framesToDel(iDel) == obj(iTrack).lastFrame
+                        obj(iTrack).frames(end) = [];
+                        obj(iTrack).data(end) = [];
+                        
+                    else
+                        
+                        fn = fieldnames(obj(iTrack).data(dataInd(iDel)))';
+                        fn{2, 1} = cell(1);
+                        
+                        %Make the data empty
+                        obj(iTrack).data(dataInd(iDel)) = struct(fn{:});
+                        
+                    end
                 end
             end
-                        
         end
         
         function newTrackdata = getFrame(obj, framesToGet)

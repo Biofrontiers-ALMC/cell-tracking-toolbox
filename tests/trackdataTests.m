@@ -33,6 +33,7 @@ classdef trackdataTests < matlab.unittest.TestCase
                         
         end
         
+        
         function addFrame_addFramesSequentiallyAfter_EqualsTestData(TestObj)
             
             TDG = trackDataGenerator;
@@ -129,7 +130,8 @@ classdef trackdataTests < matlab.unittest.TestCase
             TestObj.assertEqual(AA.data(50:end), testDataPost50.data);
         end
         
-        function addFrame_addFramesWithOverwrite_EqualsOverwrittenTestData(TestObj)
+        
+        function addFrame_insertFramesWithOverwrite_EqualsOverwrittenTestData(TestObj)
             
             TDG = trackDataGenerator;
             TDG.firstFrame = 1;
@@ -153,7 +155,7 @@ classdef trackdataTests < matlab.unittest.TestCase
           
         end
         
-        function addFrame_addFramesWithoutOverwrite_ThrowsException(TestObj)
+        function addFrame_insertFramesWithoutOverwrite_ThrowsException(TestObj)
             
             TDG = trackDataGenerator;
             TDG.firstFrame = 1;
@@ -171,6 +173,7 @@ classdef trackdataTests < matlab.unittest.TestCase
             TestObj.verifyError(@() AA.addFrame(1, testData(2).data(1)),'trackdata:addFrame:FrameDataExists');
             
         end
+        
         
         function delFrame_delFramesAtStart_EqualsDeletedTestData(TestObj)
             
@@ -287,7 +290,27 @@ classdef trackdataTests < matlab.unittest.TestCase
             TestObj.assertEqual(AA.frames, uint16(1:6));
         end
         
-        function getFrame_getFramesAnywhere_EqualsSubsetOfTestData(TestObj)
+        function delFrame_trackisObjArray_FramesDeletedFromTrack(TestObj)
+            
+            TDG = trackDataGenerator;
+            TDG.firstFrame = 1;
+            TDG.numFrames = 10;
+            testData = TDG.generateTracks(5);
+            
+            AA = timedata.trackdata.struct2track(testData);
+            
+            AA = delFrame(AA, 1:3);
+            
+            TestObj.assertTrue(all([AA.firstFrame] == 4));
+            
+            for iTrack = 1:numel(AA)
+                TestObj.assertEqual(AA(iTrack).data, testData(iTrack).data(4:end));
+            end
+                 
+        end
+        
+        
+        function getFrame_getFrameRange_EqualsSubsetOfTestData(TestObj)
             
             TDG = trackDataGenerator;
             TDG.firstFrame = 1;
@@ -314,6 +337,22 @@ classdef trackdataTests < matlab.unittest.TestCase
             TestObj.assertEqual(BB.data, testData.data(3:6));
             TestObj.assertEqual(BB.frames, uint16(3:6));
             
+        end
+        
+        function getFrame_trackIsObjArray_objArrayOutEqualsSubsetOfTestData(TestObj)
+            
+            TDG = trackDataGenerator;
+            TDG.firstFrame = 1;
+            TDG.numFrames = 10;
+            testData = TDG.generateTracks(10);
+            
+            AA = timedata.trackdata.struct2track(testData);
+            
+            BB = getFrame(AA, 3:7);
+            
+            for iTrack = 1:numel(BB)
+                TestObj.assertEqual(BB(iTrack).data, AA(iTrack).data(3:7));
+            end
         end
         
         function track2struct_exportToStruct_StructDataEqualsTestData(TestObj)
