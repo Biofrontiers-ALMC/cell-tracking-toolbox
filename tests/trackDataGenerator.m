@@ -1,5 +1,25 @@
 classdef trackDataGenerator
     %TRACKDATAGENERATOR  Generates mock track data for testing
+    %
+    %  OBJ = TRACKDATAGENERATOR creates the object that can be used to
+    %  generate track data for testing.
+    %
+    %  S = generateTracks(OBJ, N) will generate N tracks using the
+    %  generation parameters.
+    %
+    %  S will be an output struct that has the following fields:
+    %     trackID
+    %     seriesID
+    %     motherTrackID
+    %     daughterTrackIDs
+    %     frames
+    %     data
+    %       Centroid
+    %       Area
+    %       Intensity
+    %
+    %  S should be compatible with trackdata import from struct (i.e.
+    %  struct2track).
     
     properties
         

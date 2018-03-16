@@ -4,11 +4,11 @@ classdef trackdata
     
     properties
         
-        trackID(1, 1) uint32 = 0;
-        seriesID(1, 1) uint32 = 0;
-        motherTrackID(1, 1) uint32 = 0;
-        daughterTrackIDs(1, 2) uint32 = [0 0];
-                
+        trackID(1, 1) uint32 {mustBeLessThanIntMax(trackID)} = 0;
+        seriesID(1, 1) uint32 {mustBeLessThanIntMax(seriesID)} = 0;
+        motherTrackID(1, 1) uint32 {mustBeLessThanIntMax(motherTrackID)} = 0;
+        daughterTrackIDs(1, 2) uint32 {mustBeLessThanIntMax(daughterTrackIDs)} = [0 0];
+
     end
     
     properties (SetAccess = private)
@@ -93,9 +93,13 @@ classdef trackdata
         
         function numFrames = get.numFrames(obj)
             
-            numFrames = double(obj.lastFrame - obj.firstFrame + 1);
-             
+            if ~isinf(obj.firstFrame)
+                numFrames = double(obj.lastFrame - obj.firstFrame + 1);
+            else
+                numFrames = 0;
+            end
         end
+        
         
         function obj = addFrame(obj, tFrame, data, varargin)
             %ADDFRAME  Add data for a frame
@@ -108,6 +112,9 @@ classdef trackdata
             %  If the new frame data has a new property that was not
             %  present in the previous frames, the value for the missing
             %  data will be empty ([]).
+            %
+            %  Note that ADDFRAME does not work on object arrays. Instead,
+            %  index the track object (e.g. T(2) = ADDFRAME(T(2),...).
             %
             %  Example:
             %
@@ -123,6 +130,11 @@ classdef trackdata
             %
             %    T.Data(2).Area = []
             %    T.Data(2).Centroid = [10 20]
+            
+            if numel(obj) > 1
+                error('trackdata:addFrame:CannotAddToArray',...
+                    'Cannot add frames to a track array.');                
+            end
             
             %Validate the frame number
             if ~isnumeric(tFrame) || ~isscalar(tFrame)
@@ -196,14 +208,14 @@ classdef trackdata
         function obj = delFrame(obj, framesToDel)
             %DELFRAME  Deletes the specified frame
             %
-            %  OBJ = DELFRAME(OBJ, F) will delete frame F from the
+            %  OBJ = DELFRAME(OBJ, F) will delete frame(s) F from the
             %  trackdata object. F can be either a vector of frame indices
             %  to delete, or 'first' or 'last' to indicate whether the
             %  first or last frame respectively.
             %
-            %  If T is an object array, frame F will be removed from each
-            %  object in T. To delete a frame from a specific track,
-            %  specify the track by indexing e.g. T(5) = DELFRAME(T(5), F).
+            %  If OBJ is an object array, frame(s) F will be removed from
+            %  each object in T. If the track only contains a subset of the
+            %  frames specified, only those frames will be removed.
             %
             %  The deletion will try to maintain the smallest variable size
             %  possible. For example, if F contains a sequence of numbers
@@ -227,26 +239,34 @@ classdef trackdata
             %
             %  OBJ = DELFRAME(OBJ, 7) will return a track that has the same
             %  length, but frame 7 will be empty.
-            %
             
             for iTrack = 1:numel(obj)
                 
                 %Validate the frames to delete
                 if isnumeric(framesToDel)
                     if ~(all(framesToDel >= obj(iTrack).firstFrame & framesToDel <= obj(iTrack).lastFrame))
-                        warning('trackdata:delFrame:frameIndexInvalid',...
-                                'Frame numbers to be deleted should be between %d (first frame) and %d (last frame).',...
-                                obj(iTrack).firstFrame, obj(iTrack).lastFrame);
-                        continue;
+                        
+                        corrFramesToDel = framesToDel(ismember(framesToDel, obj(iTrack).firstFrame:obj(iTrack).lastFrame));
+                        
+                        if ~isempty(corrFramesToDel)
+                            %Change the frames to delete existing tracks
+                            indToDel = corrFramesToDel - obj(iTrack).firstFrame + 1;
+                        else
+                            continue;
+                        end
+                    else
+                        
+                        %Convert the frame index into the index for the data array
+                        indToDel = framesToDel - obj(iTrack).firstFrame + 1;
                     end
                     
                 elseif ischar(tFrame)
                     
                     if strcmpi(framesToDel, 'first')
-                        framesToDel = obj(iTrack).firstFrame;
+                        indToDel = 1;
                         
                     elseif strcmpi(framesToDel, 'last')
-                        framesToDel = obj(iTrack).lastFrame;
+                        indToDel = numel(obj.data);
                         
                     else
                         error('trackdata:delFrame:InvalidCharInput',...
@@ -258,50 +278,81 @@ classdef trackdata
                         'Expected the frame index to be numerical,''first'' or ''last''');
                 end
                 
-                %Sort the indices in descending order. This will ensure that
-                %when deleting from the end of the array, the data will be
-                %deleted sequentially (i.e. delFrame(T, 7:10) will make the new
-                %first frame number = 6).
-                %
-                %A 'while' loop is in place to handle deletion of empty frames
-                %when the indices are from the start. The reason I wrote the
-                %code this way is to favor faster deletion from the end of the
-                %track (which is performed during mitosis detection)
-                framesToDel = sort(framesToDel, 'descend');
+                obj(iTrack) = delFrameByIndex(obj(iTrack), indToDel);
                 
-                %Convert the frame index into the index for the data array
-                dataInd = framesToDel - obj(iTrack).firstFrame + 1;
+            end
+            
+        end
+        
+        function obj = delFrameByIndex(obj, indToDel)
+            %DELFRAMEBYTIME  Deletes frames by index
+            %
+            %  OBJ = DELFRAMEBYTIME(OBJ,I) will delete frames from the
+            %  track object specified by its index (e.g. I = 1 will always
+            %  refer to the first frame, regardless of the actual frame
+            %  time).
+            %
+            %  See also: delFrame
+            
+            %REFACTOR: I think that this whole method can be performed more
+            %efficiently.
+            
+            %Sort the indices in descending order. This will ensure that
+            %when deleting from the end of the array, the data will be
+            %deleted sequentially (i.e. delFrame(T, 7:10) will make the new
+            %first frame number = 6).
+            %
+            %A 'while' loop is in place to handle deletion of empty frames
+            %when the indices are from the start. The reason I wrote the
+            %code this way is to favor faster deletion from the end of the
+            %track (which is performed during mitosis detection)
+            
+            indToDel = sort(indToDel,'descend');
+            
+            for iTrack = 1:numel(obj)
                 
-                %Delete the data
-                for iDel = 1:numel(framesToDel)
-                    if framesToDel(iDel) == obj(iTrack).firstFrame
+                %Verify that the indices to delete exist
+                if any(~ismember(indToDel, 1:obj(iTrack).numFrames))
+                    error('trackdata:IndexOutOfRange',...
+                        'Frame index is out of range for deletion');
+                end
+                
+                for iDel = 1:numel(indToDel)
+                    
+                    if indToDel(iDel) == 1
+                        %If deleting the first frame, also remove all
+                        %consecutive empty frames
                         obj(iTrack).frames(1) = [];
                         obj(iTrack).data(1) = [];
                         
-                        %Remove empty frames from the start
-                        while all(structfun(@isempty ,obj(iTrack).data(1)))
-                            obj(iTrack).frames(1) = [];
-                            obj(iTrack).data(1) = [];
+                        %Check if the object is now empty
+                        if ~isempty(obj(iTrack).data)
+                            %Remove empty frames from the start
+                            while all(structfun(@isempty ,obj(iTrack).data(1)))
+                                obj(iTrack).frames(1) = [];
+                                obj(iTrack).data(1) = [];
+                            end
                         end
                         
-                    elseif framesToDel(iDel) == obj(iTrack).lastFrame
+                    elseif indToDel(iDel) == numel(obj(iTrack).frames)
+                        %Remove the last frame
                         obj(iTrack).frames(end) = [];
                         obj(iTrack).data(end) = [];
                         
                     else
-                        
-                        fn = fieldnames(obj(iTrack).data(dataInd(iDel)))';
+                        %Otherwise, make the data structure empty                        
+                        fn = fieldnames(obj(iTrack).data(indToDel(iDel)))';
                         fn{2, 1} = cell(1);
                         
-                        %Make the data empty
-                        obj(iTrack).data(dataInd(iDel)) = struct(fn{:});
+                        obj(iTrack).data(indToDel(iDel)) = struct(fn{:});
                         
                     end
                 end
             end
-        end
+        end        
         
-        function newTrackdata = getFrame(obj, framesToGet)
+        
+        function newObj = getFrame(obj, framesToGet)
             %GETFRAMES  Subset of time series samples
             %
             %  ST = GETFRAMES(T, F) returns a new trackdata object
@@ -309,44 +360,93 @@ classdef trackdata
             %  properties (e.g. trackID, seriesID...) will be copied from
             %  the original object
             
-            %Validate the input
-            if isnumeric(framesToGet)
-                if ~(all(framesToGet >= obj.firstFrame & framesToGet <= obj.lastFrame))
-                    error('trackdata:getFrame:frameIndexInvalid',...
-                        'Frame numbers to be deleted should be between %d (first frame) and %d (last frame).',...
-                        obj.firstFrame, obj.lastFrame);
-                end
+            for iObj = 1:numel(obj)
                 
-            elseif ischar(tFrame)
-                
-                if strcmpi(framesToGet, 'first')
-                    framesToGet = obj.firstFrame;
+                %Validate the input
+                if isnumeric(framesToGet)
                     
-                elseif strcmpi(framesToGet, 'last')
-                    framesToGet = obj.lastFrame;
+                    if ~(all(ismember(framesToGet, obj(iObj).firstFrame:obj(iObj).lastFrame)))
+                        error('trackdata:getFrame:frameIndexInvalid',...
+                            'Frame numbers to be deleted should be between %d (first frame) and %d (last frame).',...
+                            obj(iObj).firstFrame, obj(iObj).lastFrame);
+                    end
+                    
+                elseif ischar(tFrame)
+                    
+                    if strcmpi(framesToGet, 'first')
+                        framesToGet = obj(iObj).firstFrame;
+                        
+                    elseif strcmpi(framesToGet, 'last')
+                        framesToGet = obj(iObj).lastFrame;
+                        
+                    else
+                        error('trackdata:getFrame:InvalidCharInput',...
+                            'Expected the input to be ''first'' or ''last''');
+                    end
                     
                 else
-                    error('trackdata:getFrame:InvalidCharInput',...
-                        'Expected the input to be ''first'' or ''last''');
+                    error('trackdata:getFrame:InvalidInput',...
+                        'Expected the frame index to be numerical,''first'' or ''last''');
                 end
                 
-            else
-                error('trackdata:getFrame:InvalidInput',...
-                    'Expected the frame index to be numerical,''first'' or ''last''');
+                %Duplicate the object
+                newTrackdata = obj(iObj);
+                
+                %Delete unwanted frames
+                framesToDel = obj(iObj).firstFrame:obj(iObj).lastFrame;
+                for iG = framesToGet
+                    framesToDel(framesToDel == iG) = [];
+                end
+                
+                newObj(iObj) = delFrame(newTrackdata, framesToDel);
             end
-            
-            %Duplicate the object
-            newTrackdata = obj;
-            
-            %Delete unwanted frames
-            framesToDel = obj.firstFrame:obj.lastFrame;
-            for iG = framesToGet
-                framesToDel(framesToDel == iG) = [];
-            end
-            
-            newTrackdata = delFrame(newTrackdata, framesToDel);
-             
         end
+        
+        
+        function [dataOut, framesOut] = getData(obj, framesToGet, varargin)
+            %GETDATA  Get track data
+            %
+            %  S = GETDATA(OBJ) will return a structure containing
+            %
+            %  M = GETDATA(OBJ, 'property')
+            %  S = GETDATA(OBJ, {'List of properties'})
+            %
+            %  [S, F] = GETDATA(OBJ, F, 'property', 'omitempty')
+            %
+            %  Works on object arrays
+            
+            
+        end
+        
+        
+        function obj = renumberTracks(obj)
+            %RENUMBERTRACKS  Renumbers the trackIDs consecutively
+            %
+            %  OBJ = RENUMBERTRACKS(OBJ) renumbers trackIDs so they are
+            %  continuous and consecutive. This can be helpful when joining
+            %  different track objects together.
+            
+            for ii = 1:numel(obj)
+                
+                obj(ii).trackID = ii;                
+                
+            end
+            
+        end
+        
+        function obj = reorderTracks(obj)
+            %REORDERTRACKS  Reorder tracks according to their trackIDs
+            %
+            %  OBJ = REORDERTRACKS(OBJ) will reorder the tracks so the
+            %  resulting trackIDs are in ascending order.
+            
+            trackIDs = [obj.trackID];
+            [~, I] = sort(trackIDs);
+            
+            obj = obj(I);
+            
+        end
+        
         
         function structOut = track2struct(obj)
             %TRACK2STRUCT  Converts the trackdata object(s) into a struct
@@ -573,31 +673,65 @@ classdef trackdata
             end
             
         end
-
+        
     end
     
     methods (Static)
        
         function obj = struct2track(dataIn)
             %STRUCT2TRACK  Creates a trackdata object from a struct
+            %
+            %  OBJ = STRUCT2TRACK(S) will import the data from struct S,
+            %  creating new trackdata objects. 
+            %
+            %  S has to have the following fields:
+            %     trackID
+            %     seriesID
+            %     motherTrackID
+            %     daughterTrackIDs
+            %     frames
+            %     data
+            %
+            %  See also: track2struct
             
+            %Validate the input
             if ~isstruct(dataIn)
                 error('trackdata:struct2track:InputNotStruct',...
-                    'Expected input to be a struct.')                
+                    'Expected input to be a struct.')       
             end
             
             obj = timedata.trackdata(numel(dataIn));
             
-            for iTrack = 1:numel(dataIn)
-                obj(iTrack).trackID = dataIn(iTrack).trackID;
-                obj(iTrack).seriesID = dataIn(iTrack).seriesID;
-                obj(iTrack).motherTrackID = dataIn(iTrack).motherTrackID;
-                obj(iTrack).daughterTrackIDs = dataIn(iTrack).daughterTrackIDs;
+            try
+                for iTrack = 1:numel(dataIn)
+                    
+                    %Check that the number of tracks and data matches
+                    if numel(dataIn(iTrack).data) ~= numel(dataIn(iTrack).frames)
+                        error('trackdata:struct2track:NumDataMismatch', ...
+                            'The number of frames and data points must match.');
+                    end
+                    
+                    obj(iTrack).trackID = dataIn(iTrack).trackID;
+                    obj(iTrack).seriesID = dataIn(iTrack).seriesID;
+                    obj(iTrack).motherTrackID = dataIn(iTrack).motherTrackID;
+                    obj(iTrack).daughterTrackIDs = dataIn(iTrack).daughterTrackIDs;
+                    
+                    obj(iTrack).data = dataIn(iTrack).data;
+                    obj(iTrack).frames = dataIn(iTrack).frames;
+                end
+            catch ME
                 
-                obj(iTrack).data = dataIn(iTrack).data;
-                obj(iTrack).frames = dataIn(iTrack).frames;
+                if strcmp(ME.identifier,'MATLAB:nonExistentField')
+                    
+                    error('trackdata:struct2track:MissingFields', ...
+                        'The input structure is missing a required field. %s',...
+                        ME.message);
+                    
+                else
+                    rethrow(ME)
+                end               
+                
             end
-            
         end
                 
         function obj = import(filename, varargin)
@@ -639,60 +773,28 @@ classdef trackdata
             
             
         end
+
+    end
+    
+    methods (Hidden)
+        
+        function catObj = vertcat(obj, varargin)
+            
+            %If trying to vertcat, make it horzcat instead
+            catObj = [obj, varargin{:}];
+            
+        end
         
     end
     
 end
 
-% % %% Export to HD5
-% % 
-% % hd5FN = [fn, '.h5'];
-% % 
-% % if exist(hd5FN, 'file')
-% %     delete(hd5FN);    
-% % end
-% % 
-% % for iTrack = 1:numel(trackArray)
-% %     
-% %     %Create track elememnt
-% %     ct = trackArray.getTrack(iTrack);    
-% %         
-% %     h5create(hd5FN, sprintf('/track%d/ID', ct.ID), [1, 1]);
-% %     h5write(hd5FN, sprintf('/track%d/ID', ct.ID), ct.ID);    
-% %     
-% %     h5create(hd5FN, sprintf('/track%d/MotherIdx', ct.ID), [1, 1]);
-% %     h5write(hd5FN, sprintf('/track%d/MotherIdx', ct.ID), ct.MotherIdx);
-% %     h5create(hd5FN, sprintf('/track%d/DaughterIdxs', ct.ID), [1, numel(ct.DaughterIdxs)]);
-% %     h5write(hd5FN, sprintf('/track%d/DaughterIdxs', ct.ID), ct.DaughterIdxs);
-% %     
-% %     h5create(hd5FN, sprintf('/track%d/FrameIndex', ct.ID), [1, ct.NumFrames]);
-% %     h5write(hd5FN, sprintf('/track%d/FrameIndex', ct.ID), ct.FrameIndex);
-% % 
-% %     for iP = 1:numel(ct.TrackDataProps)            
-% %             
-% %             %Skip pixelidxlist and centroid just to keep the file size the
-% %             %same
-% %             switch ct.TrackDataProps{iP}
-% %                 
-% %                 case 'PixelIdxList'
-% %                     h5create(hd5FN, sprintf('/track%d/%s', ct.ID, ct.TrackDataProps{iP}), [1 2]);
-% %                     h5write(hd5FN, sprintf('/track%d/%s',ct.ID, ct.TrackDataProps{iP}), [72 72]);
-% %                     
-% %                 case 'Centroid'
-% %                     h5create(hd5FN, sprintf('/track%d/%s', ct.ID,ct.TrackDataProps{iP}), [1 2]);
-% %                     h5write(hd5FN, sprintf('/track%d/%s',ct.ID, ct.TrackDataProps{iP}), [72 72]);
-% %                     
-% %                 otherwise                   
-% %                     try
-% %                         
-% %                         dataToWrite = cat(1,ct.Data.(ct.TrackDataProps{iP}));
-% %                         h5create(hd5FN, sprintf('/track%d/%s',ct.ID, ct.TrackDataProps{iP}), size(dataToWrite));
-% %                         h5write(hd5FN, sprintf('/track%d/%s', ct.ID,ct.TrackDataProps{iP}), dataToWrite);
-% %                     catch
-% %                         keyboard
-% %                     end
-% %             end
-% %     
-% %     end
-% %         
-% % end
+%Input validation function
+function mustBeLessThanIntMax(a)
+    
+    if any(a > intmax(class(a)))
+        error('trackdata:NumTooLarge', ...
+            'Value must be less than %d', intmax(class(a)));
+    end
+    
+end
