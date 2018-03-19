@@ -5,7 +5,7 @@ classdef trackdata
     properties
         
         trackID(1, 1) uint32 {mustBeLessThanIntMax(trackID)} = 0;
-        seriesID(1, 1) uint32 {mustBeLessThanIntMax(seriesID)} = 0;
+        %seriesID(1, 1) uint32 {mustBeLessThanIntMax(seriesID)} = 0;
         motherTrackID(1, 1) uint32 {mustBeLessThanIntMax(motherTrackID)} = 0;
         daughterTrackIDs(1, 2) uint32 {mustBeLessThanIntMax(daughterTrackIDs)} = [0 0];
 
@@ -421,23 +421,61 @@ classdef trackdata
             
             if isempty(varargin)
                 
-                %Initialize output structure
-                fn = fieldnames(obj(1).data(1))';
-                fn{2, 1} = cell(1);
+                propsList = fieldnames(obj(1).data(1))';
                 
-                dataOut(numel(obj)) = struct(fn{:});
+            else
+                
+                propsList = varargin{1};
+                if ~iscell(propsList)
+                    propsList = {propsList};                    
+                end
+                
+            end
+            
+            %Initialize output structure
+            fn = propsList;
+            fn{2, 1} = cell(1);
+            dataOut(numel(obj)) = struct(fn{:});
+            
+            for ii = 1:numel(obj)
+                [dataOut(ii), framesOut] = getDataFromProperty(obj(ii),propsList);
+            end
+            
+            
+            function [dataOut, framesOut] = getDataFromProperty(thisObj, propList)
                 
                 %Assemble the data
-                for iFN = 1:numel(fn(1,:))
-                    for iF = 1:obj.numFrames
-                        if isempty(obj.data(iF).(fn{iFN,1}))
-                            dataOut.(fn{iFN,1}) = NaN;
-                        else
-                            dataOut.(fn{iFN,1}) = obj.data(iF).(fn{iFN,1});
+                for iFN = 1:numel(propList(1,:))
+                    
+                    %Determine the output data type - if all the data has
+                    %the same size, then combine into a matrix. Otherwise,
+                    %output a cell (e.g. for PixelIdxLists)
+                    temp = {thisObj.data.(propList{iFN})};
+                    
+                    if range(cellfun(@numel, temp)) == 0
+                        dataIsEqual = true;
+                        dataOutCollected = nan(thisObj.numFrames, numel(thisObj.data(1).(propList{iFN})));
+                    else
+                        dataIsEqual = false;
+                        dataOutCollected = cell(1, thisObj.numFrames);
+                    end
+                    
+                    for iFrame = 1:thisObj.numFrames
+                        if ~isempty(thisObj.data(iFrame).(propList{1,iFN}))
+                            if dataIsEqual
+                                dataOutCollected(iFrame,:) = thisObj.data(iFrame).(propList{iFN});
+                            else
+                                dataOutCollected{iFrame} = thisObj.data(iFrame).(propList{iFN});
+                            end
                         end
                     end
+                    
+                    dataOut.(propList{iFN}) = dataOutCollected;
                 end
+                
+                framesOut = thisObj.firstFrame:thisObj.lastFrame;
             end
+            
             
         end
         
@@ -723,6 +761,8 @@ classdef trackdata
                     'Expected input to be a struct.')       
             end
             
+            %TODO: Check data and frames size is correct
+            
             obj = timedata.trackdata(numel(dataIn));
             
             try
@@ -735,7 +775,6 @@ classdef trackdata
                     end
                     
                     obj(iTrack).trackID = dataIn(iTrack).trackID;
-                    obj(iTrack).seriesID = dataIn(iTrack).seriesID;
                     obj(iTrack).motherTrackID = dataIn(iTrack).motherTrackID;
                     obj(iTrack).daughterTrackIDs = dataIn(iTrack).daughterTrackIDs;
                     

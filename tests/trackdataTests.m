@@ -13,15 +13,14 @@ classdef trackdataTests < matlab.unittest.TestCase
             
         end
         
-        function construct_initializeSeriesIDandMotherTrackID(TestObj)
+        function construct_initializeMotherTrackID_IDsAreAllSet(TestObj)
             
-            AA = timedata.trackdata(10, 'seriesID', 2, 'motherTrackID', 8);
+            AA = timedata.trackdata(10, 'motherTrackID', 8);
             
             TestObj.verifyEqual(numel(AA), 10);
             TestObj.verifyEqual(size(AA), [1, 10]);
             
             for nn = 1:numel(AA)
-                TestObj.assertEqual(AA(nn).seriesID , uint32(2));                
                 TestObj.assertEqual(AA(nn).motherTrackID , uint32(8));     
             end
             
@@ -85,6 +84,7 @@ classdef trackdataTests < matlab.unittest.TestCase
             emptyData.Area = [];
             emptyData.Centroid = [];
             emptyData.Intensity = [];
+            emptyData.PixelIdxList = [];
             
             for iF = 1:numel(AA.data)
                 if iF == 1
@@ -412,7 +412,6 @@ classdef trackdataTests < matlab.unittest.TestCase
         end
         
         
-        
         function updateProperty(TestObj)
             
             %Change track property e.g. intensity values
@@ -482,8 +481,67 @@ classdef trackdataTests < matlab.unittest.TestCase
             
             [retData, retFrames] = getData(AA);
             
+            %Test that data with same number of elements are matrices
             TestObj.assertEqual(retData.Centroid, cat(1,testData.data.Centroid));
-            TestObj.assertEqual(retFrames, uint16(testData.frames));
+            
+            %Test that matrices with different number of elements become
+            %cells
+            TestObj.assertEqual(retData.PixelIdxList, {testData.data.PixelIdxList});
+            
+            %Check returned frames are correct
+            TestObj.assertEqual(retFrames, testData.frames);
+            
+        end
+        
+        function getData_SelectedProperties_OutputIsDataStruct(TestObj)
+            
+            TDG = trackDataGenerator;
+            TDG.numFrames = 10;
+            testData = generateTracks(TDG, 1);
+            
+            AA = timedata.trackdata.struct2track(testData);
+            
+            retData = getData(AA, {'Centroid', 'PixelIdxList'});
+            
+            TestObj.assertEqual(fieldnames(retData), {'Centroid'; 'PixelIdxList'});
+            
+            %Test that data with same number of elements are matrices
+            TestObj.assertEqual(retData.Centroid, cat(1,testData.data.Centroid));
+            TestObj.assertEqual(retData.PixelIdxList, {testData.data.PixelIdxList});
+            
+        end
+        
+        function getData_WithNaNs_OutputHasNaNs(TestObj)
+            
+            TDG = trackDataGenerator;
+            TDG.numFrames = 10;
+            testData = generateTracks(TDG, 1, 'missingframes');
+            
+            AA = timedata.trackdata.struct2track(testData);
+            
+            retData = getData(AA, {'Centroid', 'PixelIdxList'});
+            
+            TestObj.assertEqual(fieldnames(retData), {'Centroid'; 'PixelIdxList'});
+            
+            %Test that data with same number of elements are matrices
+            TestObj.assertEqual(retData.Centroid, cat(1,testData.data.Centroid));
+            TestObj.assertEqual(retData.PixelIdxList, {testData.data.PixelIdxList});
+            
+        end
+        
+        function getData_WithNaNs_ArgOmitNaNs_OutputDoesNotHaveNaNs(TestObj)
+            
+            TDG = trackDataGenerator;
+            TDG.numFrames = 10;
+            testData = generateTracks(TDG, 1);
+            
+            AA = timedata.trackdata.struct2track(testData);
+            
+            retData = getData(AA, {'Centroid', 'PixelIdxList'});
+            
+            TestObj.assertEqual(fieldnames(retData), {'Centroid'; 'PixelIdxList'});
+
+            error('Not implemented')
             
         end
         
@@ -499,8 +557,8 @@ classdef trackdataTests < matlab.unittest.TestCase
             [retData, retFrames] = getData(AA);
             
             TestObj.assertEqual(numel(retData), 2);
-            TestObj.assertEqual(retData(2), testData.data);
-            TestObj.assertEqual(retFrames(2), uint16(testData.frames));
+            TestObj.assertEqual(retData(2).Centroid, cat(1,testData.data.Centroid));
+            TestObj.assertEqual(retFrames, testData.frames);
             
         end
         
@@ -539,7 +597,6 @@ classdef trackdataTests < matlab.unittest.TestCase
             for iTrack = 1:numel(AA)
                 TestObj.assertEqual(AA(iTrack).trackID, uint32(testData(iTrack).trackID));
                
-                TestObj.assertEqual(AA(iTrack).seriesID, uint32(testData(iTrack).seriesID));
                 TestObj.assertEqual(AA(iTrack).motherTrackID, uint32(testData(iTrack).motherTrackID));
                 TestObj.assertEqual(AA(iTrack).daughterTrackIDs, uint32(testData(iTrack).daughterTrackIDs));
                 

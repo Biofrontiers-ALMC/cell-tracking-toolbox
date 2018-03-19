@@ -9,7 +9,6 @@ classdef trackDataGenerator
     %
     %  S will be an output struct that has the following fields:
     %     trackID
-    %     seriesID
     %     motherTrackID
     %     daughterTrackIDs
     %     frames
@@ -31,17 +30,40 @@ classdef trackDataGenerator
     methods
         
         function outputData = generateTracks(obj, numTracks, varargin)
+            %GENERATETRACKS  Generate randomized track data for testing
+            %
+            %  S = GENERATETRACKS(OBJ, N) will generate track data for N
+            %  tracks, returning it as a struct S. S will be compatible
+            %  with trackdata's import functions.
+            %
+            %  S = GENERATETRACKS(OBJ, N, 'missingframes') will generate
+            %  track data with missing frames. Missing frames will be
+            %  generated with a probability of 80%, with a minimum of one
+            %  track having at least one missing frame.
+                        
+            allowMissingFrames = false;
+            
+            while ~isempty(varargin)
+                
+                switch lower(varargin{1})
+                    
+                    case 'missingframes'
+                        allowMissingFrames = true;
+                                        
+                end
+                
+                varargin(1) = [];
+            end
             
             outputData = struct('trackID',{},...
-                'seriesID', {}, 'motherTrackID', {}, 'daughterTrackIDs', {},...
+                'motherTrackID', {}, 'daughterTrackIDs', {},...
                 'frames',{}, ...
-                'data', struct('Centroid', {}, 'Area', {}, 'Intensity', {}));
-            
+                'data', struct('Centroid', {}, 'Area', {}, 'Intensity', {}, 'PixelIdxList', {}));
+                                    
             %--- Generate tracks ---%
             for ii = 1:numTracks
                 
                 outputData(ii).trackID = ii;
-                outputData(ii).seriesID = 1;
                 outputData(ii).motherTrackID = 0;
                 outputData(ii).daughterTrackIDs = [0 0];
                 
@@ -60,9 +82,15 @@ classdef trackDataGenerator
                 outputData(ii).frames = trackFirstFrame:trackFirstFrame + (trackNumFrames - 1);
                 
                 for iFrame = 1:trackNumFrames
+                    if allowMissingFrames && rand(1) > 0.8
+                        %Skip this frame
+                        continue;
+                    end
+                    
                     outputData(ii).data(iFrame).Centroid = round(rand(1, 2) * 2048);
                     outputData(ii).data(iFrame).Area = round(rand(1) * 1000);
                     outputData(ii).data(iFrame).Intensity = rand(1) * 65535;
+                    outputData(ii).data(iFrame).PixelIdxList = rand(round(rand(1) * 100),1);
                 end
             end
             
