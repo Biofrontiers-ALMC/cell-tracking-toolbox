@@ -1,5 +1,5 @@
 classdef trackdata
-    %TRACKDATA  Class for holding timeseries data for a single track
+    %TRACKDATA  Class for holding data for a single tracked object
     %
     
     properties
@@ -349,7 +349,7 @@ classdef trackdata
                     end
                 end
             end
-        end        
+        end
         
         
         function newObj = getFrame(obj, framesToGet)
@@ -403,8 +403,8 @@ classdef trackdata
         end
         
         
-        function [dataOut, framesOut] = getData(obj, framesToGet, varargin)
-            %GETDATA  Get track data
+        function [dataOut, framesOut] = getData(obj, varargin)
+            %GETDATA  Returns track data formatted as matrix or cell
             %
             %  S = GETDATA(OBJ) will return a structure containing
             %
@@ -414,7 +414,30 @@ classdef trackdata
             %  [S, F] = GETDATA(OBJ, F, 'property', 'omitempty')
             %
             %  Works on object arrays
+            %
+            %OUTPUT data:
+            %  dataOut.(Centroid) = [...]
+            %  dataOut.(PixelIdxList) = {...}
             
+            if isempty(varargin)
+                
+                %Initialize output structure
+                fn = fieldnames(obj(1).data(1))';
+                fn{2, 1} = cell(1);
+                
+                dataOut(numel(obj)) = struct(fn{:});
+                
+                %Assemble the data
+                for iFN = 1:numel(fn(1,:))
+                    for iF = 1:obj.numFrames
+                        if isempty(obj.data(iF).(fn{iFN,1}))
+                            dataOut.(fn{iFN,1}) = NaN;
+                        else
+                            dataOut.(fn{iFN,1}) = obj.data(iF).(fn{iFN,1});
+                        end
+                    end
+                end
+            end
             
         end
         

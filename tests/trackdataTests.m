@@ -472,6 +472,39 @@ classdef trackdataTests < matlab.unittest.TestCase
         end
         
         
+        function getData_NoArguments_OutputIsDataStruct(TestObj)
+            
+            TDG = trackDataGenerator;
+            TDG.numFrames = 10;
+            testData = generateTracks(TDG, 1);
+            
+            AA = timedata.trackdata.struct2track(testData);
+            
+            [retData, retFrames] = getData(AA);
+            
+            TestObj.assertEqual(retData.Centroid, cat(1,testData.data.Centroid));
+            TestObj.assertEqual(retFrames, uint16(testData.frames));
+            
+        end
+        
+        function getData_trackIsArray_NoArguments_OutputIsDataStruct(TestObj)
+            
+            TDG = trackDataGenerator;
+            TDG.numFrames = 10;
+            testData = generateTracks(TDG, 1);
+            
+            AA = timedata.trackdata.struct2track(testData);
+            AA = [AA; AA];
+            
+            [retData, retFrames] = getData(AA);
+            
+            TestObj.assertEqual(numel(retData), 2);
+            TestObj.assertEqual(retData(2), testData.data);
+            TestObj.assertEqual(retFrames(2), uint16(testData.frames));
+            
+        end
+        
+        
         function track2struct_exportToStruct_StructDataEqualsTestData(TestObj)
             
             %Generate test data
