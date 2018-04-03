@@ -309,15 +309,41 @@ classdef TrackData
                 end
             else
                 
-                %Initialize the output data vector
-                dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
+                %Determine if the output has a uniform size
+                szData = zeros(1, numel(obj.Data));
                 
-                for iD = 1:obj.NumFrames
-                    currData = obj.Data(iD).(reqData);
-                    if ~isempty(currData)
-                        dataOut(iD,:) = currData;
-                    end
+                for ii = 1:numel(obj.Data)
+                    szData(ii) = numel(obj.Data(ii).(reqData));
                 end
+                
+                %Allow size zeros
+                szData(szData == 0) = [];
+                
+                if ~all(szData == szData(1))                
+                    
+                    dataOut = cell(1,obj.NumFrames);
+                
+                    for iD = 1:obj.NumFrames
+                        currData = obj.Data(iD).(reqData);
+                        if ~isempty(currData)
+                            dataOut{iD} = currData;
+                        end
+                    end                    
+               
+                else
+                    %Initialize the output data vector
+                    dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
+                    
+                    for iD = 1:obj.NumFrames
+                        currData = obj.Data(iD).(reqData);
+                        if ~isempty(currData)
+                            dataOut(iD,:) = currData;
+                        end
+                    end
+                
+                end
+                
+
                 
             end
             
