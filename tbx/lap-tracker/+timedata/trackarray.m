@@ -2,12 +2,15 @@ classdef trackarray
     %TRACKARRAY  Container class to hold multiple trackdata objects
     %
         
-    properties (SetAccess = private)
+    properties (Access = private)
         tracks        
         metadata = timedata.trackmetadata;
     end
     
     properties (Dependent)
+        
+        Tracks
+        
         numTracks
         
         numFrames
@@ -284,6 +287,18 @@ classdef trackarray
             %  See also: timedata.trackmetadata, setMetadata
             
             mdValue = get(obj.metadata, propName);
+            
+        end
+        
+        function tracksOut = get.Tracks(obj)
+            
+            if ~isempty(obj.tracks)
+                
+                tracksOut = obj.tracks;
+            else
+                tracksOut = [];
+                
+            end
             
         end
         

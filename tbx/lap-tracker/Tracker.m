@@ -159,7 +159,7 @@ classdef Tracker < handle
                 parfor (iF = 1:numel(fname), obj.MaxWorkers)
                     try
                         fprintf('%s %s: Starting processing.\n', datestr(now), fname{iF});
-                        CyTracker.trackFile(fname{iF}, outputDir, options);
+                        Tracker.trackFile(fname{iF}, outputDir, options);
                         fprintf('%s %s: Completed.\n', datestr(now), fname{iF});
                     catch ME
                         fprintf('%s %s: An error occured:\n', datestr(now), fname{iF});

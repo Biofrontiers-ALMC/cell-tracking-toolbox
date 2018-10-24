@@ -339,8 +339,13 @@ classdef TrackDataArray
                     
                     for iP = 1:numel(obj.TrackedDataFields)
                         
-                        if numel(ct.Data(iF).(obj.TrackedDataFields{iP})) > 1
+                        if numel(ct.Data(iF).(obj.TrackedDataFields{iP})) > 5
+                            
                             fprintf(fid, ', %%');
+                            
+                        elseif numel(ct.Data(iF).(obj.TrackedDataFields{iP})) > 1
+                            
+                            fprintf(fid, ', %s', mat2str(ct.Data(iF).(obj.TrackedDataFields{iP}), 3));
                             
                         else
                             fprintf(fid, ', %d', ct.Data(iF).(obj.TrackedDataFields{iP}));

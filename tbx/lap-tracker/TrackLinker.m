@@ -7,7 +7,6 @@ classdef TrackLinker
         LinkedBy = 'Centroid';
         LinkCalculation = 'euclidean';
         LinkingScoreRange = [-Inf, Inf];
-        
         MaxTrackAge = 2;
         
         %Mitosis detection parameters
@@ -101,7 +100,7 @@ classdef TrackLinker
             
         end
         
-        function obj = assignToTrack(obj, frameIndex, newData)
+        function obj = assignToTrack(obj, frameIndex, newData, varargin)
             %ASSIGNTOTRACK  Assigns newly detected objects to tracks
             %
             %  L = L.ASSIGNTOTRACK(I, D) will assign the new object data D
@@ -632,7 +631,6 @@ classdef TrackLinker
                     %Note: MATLAB should error out if the vectors are not
                     %the same size etc.
                     score = sqrt(sum((input1 - input2).^2,2));
-
                     
                 case 'pxintersect'
                     %Check that the two inputs are both cell arrays of
