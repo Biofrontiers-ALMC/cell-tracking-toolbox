@@ -306,19 +306,41 @@ classdef TrackData
                     case 'last' 
                         dataOut = obj.Data(end).(reqData);
                         
+                    otherwise
+                        if isnumeric(varargin{1})
+                            dataOut = obj.Data(varargin{1} - obj.FirstFrame + 1).(reqData);
+                            
+                        end
+                        
                 end
             else
                 
-                %Initialize the output data vector
-                dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
+                %If data has different sizes, return a cell. If data has
+                %the same size, return a matrix.
+                dataSize = cellfun(@numel, {obj.Data.(reqData)});
                 
-                for iD = 1:obj.NumFrames
-                    currData = obj.Data(iD).(reqData);
-                    if ~isempty(currData)
-                        dataOut(iD,:) = currData;
+                if all(dataSize == dataSize(1) | dataSize == 0)
+                    %Initialize the output data vector
+                    dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
+                    
+                    for iD = 1:obj.NumFrames
+                        currData = obj.Data(iD).(reqData);
+                        if ~isempty(currData)
+                            dataOut(iD,:) = currData;
+                        end
+                    end
+                else
+                    
+                    %Initialize the output data vector
+                    dataOut = cell(obj.NumFrames, 1);
+                    
+                    for iD = 1:obj.NumFrames
+                        currData = obj.Data(iD).(reqData);
+                        if ~isempty(currData)
+                            dataOut{iD} = currData;
+                        end
                     end
                 end
-                
             end
             
         end
