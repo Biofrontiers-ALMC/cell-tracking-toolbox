@@ -319,7 +319,7 @@ classdef TrackData
                 %the same size, return a matrix.
                 dataSize = cellfun(@numel, {obj.Data.(reqData)});
                 
-                if all(dataSize == dataSize(1) | dataSize == 0)
+                if all(dataSize == dataSize(1) | dataSize == 0) && size(obj.Data(1).(reqData),1) == 1
                     %Initialize the output data vector
                     dataOut = nan(obj.NumFrames, size(obj.Data(1).(reqData),2));
                     
