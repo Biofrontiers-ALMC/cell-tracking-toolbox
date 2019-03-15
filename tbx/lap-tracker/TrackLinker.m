@@ -132,6 +132,11 @@ classdef TrackLinker
                 if assignments(iM) > 0 && assignments(iM) <= nNewData
                     %If an existing track was assigned to a new detection,
                     %then update its current position
+                    
+                    if isempty(newData(assignments(iM)))
+                        keyboard
+                    end
+                    
                     obj.TrackArray = obj.TrackArray.updateTrack(obj.activeTracks(iM).trackIdx,...
                         frameIndex, newData(assignments(iM)));
                     obj.activeTracks(iM).Age = 0;
@@ -184,14 +189,19 @@ classdef TrackLinker
                                         mitosisScore(iCol) = Inf;
                                     else
                                     
-                                        try
+%                                         try
                                             mitosisScore(iCol) = TrackLinker.computeScore(...
                                                 newData(iN).(obj.MitosisParameter),...
                                                 currTrack.Data(end + obj.MitosisLinkToFrame).(obj.MitosisParameter),...
                                                 obj.MitosisCalculation);
-                                        catch
-                                            keyboard
-                                        end
+%                                         catch
+%                                             %TODO!!! Test if this is valid
+%                                             %- basically error occurs if
+%                                             %the previous is empty (not
+%                                             %assigned)
+%                                             mitosisScore(iCol) = Inf;
+%                                             keyboard
+%                                         end
                                     end
                                 end
                             end
@@ -607,8 +617,11 @@ classdef TrackLinker
             auxMatrix(auxMatrix < Inf) = min(costToLink(costToLink < Inf));
             
             %Assemble the full cost matrix
+            try
             costMat = [costToLink, stopCost; segStartCost, auxMatrix];
-
+            catch
+                keyboard
+            end
         end
         
     end
@@ -631,7 +644,7 @@ classdef TrackLinker
                     %Note: MATLAB should error out if the vectors are not
                     %the same size etc.
                     score = sqrt(sum((input1 - input2).^2,2));
-                    
+
                 case 'pxintersect'
                     %Check that the two inputs are both cell arrays of
                     %numbers
