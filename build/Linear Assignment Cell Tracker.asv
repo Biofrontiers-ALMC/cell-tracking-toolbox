@@ -64,6 +64,7 @@
       <file>D:\Jian\Documents\Projects\coreCode\celltracker-version1\tbx</file>
     </fileset.rootdir>
     <fileset.rootfiles>
+<<<<<<< HEAD
       <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\app</file>
       <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\docs</file>
       <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\lap-tracker</file>

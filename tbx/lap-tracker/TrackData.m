@@ -333,6 +333,7 @@ classdef TrackData
                     
                     %Initialize the output data vector
                     dataOut = cell(obj.NumFrames, 1);
+
                     
                     for iD = 1:obj.NumFrames
                         currData = obj.Data(iD).(reqData);
@@ -340,7 +341,9 @@ classdef TrackData
                             dataOut{iD} = currData;
                         end
                     end
+                
                 end
+
             end
             
         end
