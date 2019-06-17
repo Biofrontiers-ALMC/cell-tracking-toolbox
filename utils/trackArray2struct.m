@@ -1,5 +1,8 @@
 function structOut = trackArray2struct(trackarray)
 
+%Autorun
+
+
 if ~isa(trackarray, 'TrackDataArray')
     error('trackArray2struct:NotTrackDataArray', ...
         'Expected input to be a TrackDataArray object but it is a %s object instead.', ...
