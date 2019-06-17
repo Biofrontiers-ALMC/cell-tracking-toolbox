@@ -121,6 +121,11 @@ classdef TrackLinker
             %Make the cost matrix
             costMatrix = obj.MakeCostMatrix(newData);
             
+            if numel(costMatrix) == 1 && isinf(costMatrix)
+                error('TrackLinker:assignToTrack:CostMatrixInf', ...
+                   'The cost matrix was infinite - no tracks to link?')
+            end
+            
             %Solve the assignment problem
             assignments = TrackLinker.lapjv(costMatrix);
             
@@ -618,9 +623,15 @@ classdef TrackLinker
             
             %Assemble the full cost matrix
             try
-            costMat = [costToLink, stopCost; segStartCost, auxMatrix];
+                costMat = [costToLink, stopCost; segStartCost, auxMatrix];
             catch
-                keyboard
+                if all(isinf(costToLink(:)))
+                    costMat = Inf;
+                else
+                   error('TrackLinker:MakeCostMatrix:ErrorOccured', ...
+                       'An error occurred when making the cost matrix.');
+                end
+                
             end
         end
         
