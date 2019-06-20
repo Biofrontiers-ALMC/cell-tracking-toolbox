@@ -1,14 +1,14 @@
 <deployment-project plugin="plugin.toolbox" plugin-version="1.0">
-  <configuration file="D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build\Linear Assignment Cell Tracker.prj" location="D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build" name="Linear Assignment Cell Tracker" target="target.toolbox" target-name="Package Toolbox">
-    <param.appname>Linear Assignment Cell Tracker v1.0.3</param.appname>
+  <configuration build-checksum="144585590" file="D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build\Linear Assignment Cell Tracker.prj" location="D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build" name="Linear Assignment Cell Tracker" target="target.toolbox" target-name="Package Toolbox">
+    <param.appname>Linear Assignment Cell Tracker v1.1.0</param.appname>
     <param.authnamewatermark>Jian Wei Tay</param.authnamewatermark>
     <param.email>jian.tay@colorado.edu</param.email>
     <param.company>University of Colorado Boulder</param.company>
     <param.summary>Cell tracking based on the linear assignment framework</param.summary>
     <param.description>This toolbox provides code to perform cell tracking using the linear assignment approach to link cells to tracks.</param.description>
     <param.screenshot>${PROJECT_ROOT}\tbxIcon.png</param.screenshot>
-    <param.version>1.0.3</param.version>
-    <param.output>${PROJECT_ROOT}\Linear Assignment Cell Tracker v1.0.3.mltbx</param.output>
+    <param.version>1.1.0</param.version>
+    <param.output>${PROJECT_ROOT}\Linear Assignment Cell Tracker v1.1.0.mltbx</param.output>
     <param.products.name />
     <param.products.id />
     <param.products.version />
@@ -25,6 +25,13 @@
     <param.matlabpath.excludes />
     <param.javaclasspath.excludes />
     <param.exported.on.package>false</param.exported.on.package>
+    <param.required.addons>
+      <requiredaddons>
+        <requiredAddOn downloadURL="https://drive.google.com/open?id=1dowfqHRS2D9Rf5vbrKOBy3X2idJT2S_t" earliest="earliest" fromRepository="false" id="f27de8de-7bd2-4c9e-8c48-10d517608753" include="false" latest="latest">Bioformats Image Toolbox (v1.0.5)</requiredAddOn>
+      </requiredaddons>
+    </param.required.addons>
+    <param.matlab.project.id />
+    <param.matlab.project.name />
     <param.release.start />
     <param.release.end />
     <param.release.current.only>false</param.release.current.only>
@@ -32,6 +39,12 @@
     <param.compatiblity.macos>true</param.compatiblity.macos>
     <param.compatiblity.linux>true</param.compatiblity.linux>
     <param.compatiblity.matlabonline>true</param.compatiblity.matlabonline>
+    <param.installation.map />
+    <param.additional.sw.names />
+    <param.additional.sw.licenses />
+    <param.additional.sw.win.url />
+    <param.additional.sw.mac.url />
+    <param.additional.sw.linux.url />
     <unset>
       <param.authnamewatermark />
       <param.email />
@@ -52,6 +65,8 @@
       <param.matlabpath.excludes />
       <param.javaclasspath.excludes />
       <param.exported.on.package />
+      <param.matlab.project.id />
+      <param.matlab.project.name />
       <param.release.start />
       <param.release.end />
       <param.release.current.only />
@@ -59,9 +74,15 @@
       <param.compatiblity.macos />
       <param.compatiblity.linux />
       <param.compatiblity.matlabonline />
+      <param.installation.map />
+      <param.additional.sw.names />
+      <param.additional.sw.licenses />
+      <param.additional.sw.win.url />
+      <param.additional.sw.mac.url />
+      <param.additional.sw.linux.url />
     </unset>
     <fileset.rootdir>
-      <file>D:\Jian\Documents\Projects\coreCode\celltracker-version1\tbx</file>
+      <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx</file>
     </fileset.rootdir>
     <fileset.rootfiles>
       <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\app</file>
@@ -69,16 +90,14 @@
       <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\lap-tracker</file>
     </fileset.rootfiles>
     <fileset.depfun.included />
-    <fileset.depfun.excluded>
-      <file>C:\Users\Jian Tay\Documents\MATLAB\Add-Ons\Toolboxes\Bioformats Image Toolbox (v1.0.4b)\code\BioformatsImage\BioformatsImage.m</file>
-    </fileset.depfun.excluded>
+    <fileset.depfun.excluded />
     <fileset.package />
     <build-deliverables>
-      <file location="D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build" name="Linear Assignment Cell Tracker v1.0.3.mltbx" optional="false">D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build\Linear Assignment Cell Tracker v1.0.3.mltbx</file>
+      <file location="${PROJECT_ROOT}" name="Linear Assignment Cell Tracker v1.1.0.mltbx" optional="false">D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build\Linear Assignment Cell Tracker v1.1.0.mltbx</file>
     </build-deliverables>
     <workflow />
     <matlab>
-      <root>C:\Program Files\MATLAB\R2018a</root>
+      <root>C:\Program Files\MATLAB\R2019a</root>
       <toolboxes />
     </matlab>
     <platform>
