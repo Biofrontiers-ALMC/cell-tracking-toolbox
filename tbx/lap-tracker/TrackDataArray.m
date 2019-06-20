@@ -363,6 +363,60 @@ classdef TrackDataArray
             
         end
         
+        function structOut = struct(obj)
+            %STRUCT  Convert the object to struct
+            %
+            %  STRUCT(OBJ) will convert the object to a MATLAB
+            %  structured array.
+            
+            %Initialize the track data struct
+            structOut.TrackData = struct('FirstFrame', {}, ...
+                'LastFrame', {}, ...
+                'MotherIdx', {}, ...
+                'DaughterIdx', {});
+            
+            trackProps = obj.TrackedDataFields;
+            
+%             for iP = 1:numel(trackProps)
+%                 structOut.TrackData.(trackProps{iP}) = {};
+%             end
+            
+            structOut.TrackData(obj.NumTracks).FirstFrame = 0;
+            
+            
+            %Copy the data
+            for iTrack = 1:obj.NumTracks
+                
+                ct = getTrack(obj, iTrack);
+                
+                structOut.TrackData(iTrack).FirstFrame = ct.FirstFrame;
+                structOut.TrackData(iTrack).LastFrame = ct.LastFrame;
+                structOut.TrackData(iTrack).MotherIdx = ct.MotherIdx;
+                structOut.TrackData(iTrack).NumFrames = ct.NumFrames;
+                structOut.TrackData(iTrack).FrameIndex = ct.FrameIndex;
+                
+                for iP = 1:numel(trackProps)
+                    structOut.TrackData(iTrack).(trackProps{iP}) = ...
+                       getData(ct, trackProps{iP});
+                end
+                
+            end
+            
+            
+            %Copy the metadata
+            structOut.MeanDeltaT = obj.MeanDeltaT;
+            structOut.Timestamps = obj.FileMetadata.Timestamps;
+            structOut.TimestampUnit = obj.FileMetadata.TimestampUnit;
+            structOut.PxSize = obj.FileMetadata.PxSize;
+            structOut.PxSizeUnit = obj.FileMetadata.PxSizeUnit;
+            structOut.ImgSize = obj.FileMetadata.ImgSize;
+            structOut.NumTracks = obj.NumTracks;
+            structOut.NumFrames = obj.NumFrames;
+            structOut.TrackedDataFields = obj.TrackedDataFields;
+            structOut.CreatedOn = obj.CreatedOn;
+            structOut.Filename = obj.Filename;
+            
+        end
         
     end
     
