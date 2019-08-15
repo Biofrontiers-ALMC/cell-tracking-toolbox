@@ -392,6 +392,7 @@ classdef TrackDataArray
                 structOut.TrackData(iTrack).FirstFrame = ct.FirstFrame;
                 structOut.TrackData(iTrack).LastFrame = ct.LastFrame;
                 structOut.TrackData(iTrack).MotherIdx = ct.MotherIdx;
+                structOut.TrackData(iTrack).DaughterIdx = ct.DaughterIdxs;
                 structOut.TrackData(iTrack).NumFrames = ct.NumFrames;
                 structOut.TrackData(iTrack).FrameIndex = ct.FrameIndex;
                 
