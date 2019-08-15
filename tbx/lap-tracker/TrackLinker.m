@@ -636,7 +636,7 @@ classdef TrackLinker
         end
         
     end
-     
+    
     methods (Static)
         
         function score = computeScore(input1, input2, type)
