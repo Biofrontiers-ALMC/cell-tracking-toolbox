@@ -140,6 +140,111 @@ classdef test_LAPLinker < matlab.unittest.TestCase
                 
             end
             
+            function updateTrack_insertPre(TestObj)
+                
+                L = LAPLinker;
+                L = assignToTrack(L, 5, struct('Centroid', [1, 1]));
+                                
+                L = updateTrack(L, 1, 2, struct('Centroid', [0, 1]));
+                
+                TestObj.assertEqual(L.tracks(1).Frame, 2:5);
+                TestObj.assertEqual(L.tracks(1).Centroid, ...
+                    {[0, 1], [], [], [1, 1]});
+                
+            end
+            
+            function updateTrack_insertPost(TestObj)
+                
+                L = LAPLinker;
+                L = assignToTrack(L, 5, struct('Centroid', [1, 1]));
+                
+                L = updateTrack(L, 1, 8, struct('Centroid', [0, 1]));
+                
+                TestObj.assertEqual(L.tracks(1).Frame, 5:8);
+                TestObj.assertEqual(L.tracks(1).Centroid, ...
+                    {[1, 1], [], [], [0, 1]});
+                
+            end
+            
+            function updateTrack_existing(TestObj)
+                
+                L = LAPLinker;
+                L = assignToTrack(L, 5, struct('Centroid', [1, 1]));
+                
+                L = updateTrack(L, 1, 5, struct('Centroid', [0, 1]));
+                
+                TestObj.assertEqual(L.tracks(1).Frame, 5);
+                TestObj.assertEqual(L.tracks(1).Centroid, ...
+                    {[0, 1]});
+                
+            end
+            
+            function updateTrack_insertMultPre(TestObj)
+                
+                L = LAPLinker;
+                L = assignToTrack(L, 8, struct('Centroid', [1, 1]));
+                
+                L = updateTrack(L, 1, 3, struct('Centroid', [0, 1]));
+                L = updateTrack(L, 1, 1, struct('Centroid', [1, 0]));
+                
+                TestObj.assertEqual(L.tracks(1).Frame, 1:8);
+                TestObj.assertEqual(L.tracks(1).Centroid, ...
+                    {[1, 0], [], [0, 1], [], [], [], [], [1, 1]});
+                
+            end
+            
+            function updateTrack_insertMultPost(TestObj)
+                
+                L = LAPLinker;
+                L = assignToTrack(L, 1, struct('Centroid', [1, 1]));
+                
+                L = updateTrack(L, 1, 3, struct('Centroid', [0, 1]));
+                L = updateTrack(L, 1, 8, struct('Centroid', [1, 0]));
+                
+                TestObj.assertEqual(L.tracks(1).Frame, 1:8);
+                TestObj.assertEqual(L.tracks(1).Centroid, ...
+                    {[1, 1], [], [0, 1], [], [], [], [], [1, 0]});
+                
+            end
+            
+            function updateTrack_existingMult(TestObj)
+                
+                L = LAPLinker;
+                L = assignToTrack(L, 5, struct('Centroid', [1, 1]));
+                L = updateTrack(L, 1, 6, struct('Centroid', [1, 1]));
+                L = updateTrack(L, 1, 7, struct('Centroid', [1, 1]));
+                L = updateTrack(L, 1, 8, struct('Centroid', [1, 1]));
+                
+                updatedData.Centroid = [10, 10];
+                updatedData(2).Centroid = [11, 10];
+                updatedData(3).Centroid = [12, 10];
+                
+                L = updateTrack(L, 1, [6, 7, 5], updatedData);
+                
+                TestObj.assertEqual(L.tracks(1).Frame, 5:8);
+                TestObj.assertEqual(L.tracks(1).Centroid, ...
+                    {[12, 10], [10, 10], [11, 10], [1, 1]});
+                
+            end
+            
+            function updateTrack_multiOperation(TestObj)
+                
+                L = LAPLinker;
+                L = assignToTrack(L, 5, struct('Centroid', [1, 1]));
+                
+                updatedData.Centroid = [10, 10];
+                updatedData(2).Centroid = [11, 10];
+                updatedData(3).Centroid = [12, 10];
+                
+                L = updateTrack(L, 1, [3, 8, 5], updatedData);
+                
+                TestObj.assertEqual(L.tracks(1).Frame, 3:8);
+                TestObj.assertEqual(L.tracks(1).Centroid, ...
+                    {[10, 10], [], [12, 10], [] [], [11, 10]});
+                
+            end
+            
+            
         end
         
         

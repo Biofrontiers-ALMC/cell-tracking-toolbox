@@ -37,7 +37,10 @@ for iT = 1:10%bfr.sizeT
         if numel(Linker.tracks(ii).Centroid) > 1
             Iout = insertShape(Iout, 'Line', cell2mat(Linker.tracks(ii).Centroid));
         end
-        Iout = insertText(Iout, Linker.tracks(ii).Centroid{end}, ii);
+        if Linker.tracks(ii).Frame(end) == iT
+        Iout = insertText(Iout, Linker.tracks(ii).Centroid{end}, ii, ...
+            'BoxOpacity', 0, 'TextColor', 'y');
+        end
     end
     
     Iout = double(Iout);

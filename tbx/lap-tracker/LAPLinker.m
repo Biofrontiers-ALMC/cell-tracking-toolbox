@@ -3,7 +3,13 @@ classdef LAPLinker
     %
     %  OBJ = LAPLinker creates a new object to link tracks using the linear
     %  assignment approach.
-    
+    %
+    %  Differences with Jaqaman's approach:
+    %  * Simplified version without the repair (merge/split) phase
+    %  * Division events are tested for during new track creation
+    %  * Uses the LAPJV algorithm rather than the munkres/Hungarian
+    %  algorithm
+        
     properties
         
         LinkedBy = 'Centroid';
@@ -19,6 +25,10 @@ classdef LAPLinker
         
         TrackDivision = false;
         
+    end
+    
+    properties (SetAccess = private)
+    
         metadata
         
         tracks = struct('Frame', {},...
@@ -74,7 +84,7 @@ classdef LAPLinker
                 
                 newTrackInd = numel(obj.tracks) + 1;
                 
-                %Initialize a new track
+                %Initialize common fields
                 obj.tracks(newTrackInd).Frame = frame;
                 obj.tracks(newTrackInd).MotherInd = NaN;
                 obj.tracks(newTrackInd).DaughterInd = NaN;
@@ -95,17 +105,37 @@ classdef LAPLinker
                 %Set the track as active for tracking
                 obj.isTrackActive(newTrackInd) = true;
                 
-                %Update output matrix
+                %Update track list for output
                 newTrackIndOut(iTrack) = newTrackInd;
             end
         end
         
-        function obj = updateTrack(obj, trackInd, frame, dataIn)
+        function obj = updateTrack(obj, trackInd, frames, dataIn)
+            %UPDATETRACK  Modify track data
+            %
+            %  OBJ = UPDATETRACK(OBJ, TRACK, FRAME, DATA) inserts data into
+            %  the tracks struct. The insertion is sorted, i.e. the data is
+            %  inserted such that the track's Frame field is sequentially
+            %  increasing.
+            %
+            %  Examples:
+            %  %Pre insertion
+            %
+            %  %Post insertion
+            %
+            %  %Modification of values
             
-            %Update to sorted insertion
-            obj.tracks(trackInd).Frame(end + 1) = frame;
+            %Validte track selection
+            if trackInd < 1 
+                error('LAPLinker:updateTrack:TrackIndexLessThanOne', ...
+                    'Track index must be 1 or higher.')
+            elseif trackInd > numel(obj.tracks)
+                error('LAPLinker:updateTrack:TrackDoesNotExist', ...
+                    'Track %.0f does not exist. Number of tracks = %.0f.', ...
+                    trackInd, numel(obj.tracks))          
+            end
             
-            %Populate data
+            %Validate input data
             datafields = fieldnames(dataIn);
             
             if ismember(datafields, 'Frame')
@@ -113,11 +143,49 @@ classdef LAPLinker
                     'The property ''Frame'' is already used and cannot be present in the input data.');
             end
             
-            for iF = 1:numel(datafields)
-                obj.tracks(trackInd).(datafields{iF}){end + 1} = ...
-                    dataIn.(datafields{iF});
+            for iFF = 1:numel(frames)
+                
+                frame = frames(iFF);
+                %Update data (inserting empty matrices for missing frames)
+                if frame < obj.tracks(trackInd).Frame(1)
+                    
+                    %Insert before
+                    for iF = 1:numel(datafields)
+                        obj.tracks(trackInd).(datafields{iF}) = ...
+                            [dataIn(iFF).(datafields{iF}), ...
+                            cell(1, obj.tracks(trackInd).Frame(1) - frame - 1), ...
+                            obj.tracks(trackInd).(datafields{iF})];
+                    end
+                    
+                    %Update the Frame index
+                    obj.tracks(trackInd).Frame = [frame:(obj.tracks(trackInd).Frame(1) - 1), ...
+                        obj.tracks(trackInd).Frame];
+                    
+                elseif frame > obj.tracks(trackInd).Frame(end)
+                    
+                    %Insert after
+                    for iF = 1:numel(datafields)
+                        obj.tracks(trackInd).(datafields{iF}) = ...
+                            [obj.tracks(trackInd).(datafields{iF}), ...
+                            cell(1, frame - obj.tracks(trackInd).Frame(end) - 1), ...
+                            dataIn(iFF).(datafields{iF})];
+                    end
+                    
+                    %Update the Frame index
+                    obj.tracks(trackInd).Frame = [obj.tracks(trackInd).Frame, ...
+                        (obj.tracks(trackInd).Frame(end) + 1):frame];
+                    
+                else
+                    %Modify existing frame
+                    frameInd = obj.tracks(trackInd).Frame == frame;
+                    
+                    for iF = 1:numel(datafields)
+                        obj.tracks(trackInd).(datafields{iF}){frameInd} = ...
+                            dataIn(iFF).(datafields{iF});
+                    end
+                    
+                end
             end
-            
         end
         
         function [obj, newTrackInd] = splitTrack(obj, trackInd, frameToSplit)
@@ -134,6 +202,7 @@ classdef LAPLinker
             newTrackInd = numel(obj.tracks) + 1;
                         
             obj.tracks(newTrackInd).Frame = obj.tracks(trackInd).Frame(splitInd:end);
+            obj.isTrackActive(newTrackInd) = true;
             obj.tracks(trackInd).Frame(splitInd:end) = [];
             
             for ii = 1:numel(fieldsToCopy)
@@ -230,14 +299,12 @@ classdef LAPLinker
                                 %Compute the division cost matrix
                                 for acTr = 1:numel(activeTrackInd)
                                     %Compare data to each other object in previous frame
-                                    
                                     if obj.tracks(activeTrackInd(acTr)).Frame(1) >= frame
                                         cost_to_divide(acTr) = Inf;
-                                        
-                                    elseif
-                                        
+                                    elseif ~isnan(obj.tracks(activeTrackInd(acTr)).MotherInd) && ...
+                                            (frame - obj.tracks(activeTrackInd(acTr)).Frame(1)) < obj.MinFramesBetweenDiv
                                         %Don't let cells divide too quickly
-                                        
+                                        cost_to_divide(acTr) = Inf;
                                     else
                                         lastTrackData = obj.tracks(activeTrackInd(acTr)).(obj.DivisionParameter){end - 1};
                                         cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
@@ -247,12 +314,9 @@ classdef LAPLinker
                                 %Block invalid mitosis events
                                 cost_to_divide(cost_to_divide < min(obj.DivisionScoreRange) | cost_to_divide > max(obj.DivisionScoreRange)) = Inf;
                                 
-                                
-                                
                                 [min_div_cost, min_div_ind] = min(cost_to_divide);
-                                
+
                                 if ~isinf(min_div_cost)
-                                    isDivision = true;
                                     
                                     %Split the mother track
                                     [obj, daughterInd] = splitTrack(obj, activeTrackInd(min_div_ind), frame);
@@ -266,16 +330,9 @@ classdef LAPLinker
                                     obj.tracks(newTrackInd).MotherInd = activeTrackInd(min_div_ind);
                                     obj.tracks(daughterInd).MotherInd = activeTrackInd(min_div_ind);
                                     
-                                else
-                                    isDivision = false;
                                 end
                                 
                             end
-                            
-
-
-                            
-                                
                             
                         else
                             
@@ -292,7 +349,6 @@ classdef LAPLinker
             
         end
         
-                
     end
     
     methods (Static)
@@ -321,7 +377,7 @@ classdef LAPLinker
                     
                 case 'pxintersect'
                     
-                    score = 1/(nnz(intersect(input1,input2))/nnz(union(input1,input2)));
+                    cost = cellfun(@(x) numel(union(x, lastTrackData))/numel(intersect(x, lastTrackData)), newData, 'UniformOutput', true);
                     
             end
                         
@@ -329,7 +385,7 @@ classdef LAPLinker
     
     end
     
-    methods (Access = private, Hidden = true, Static)   %LAP solvers
+    methods (Access = private, Hidden = true, Static)
         
         function [rowsol, mincost, unassigned_cols] = munkres(costMatrix)
             %MUNKRES  Munkres (Hungarian) linear assignment
