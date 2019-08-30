@@ -2,35 +2,114 @@ classdef LAPLinker
     %LAPLinker  Links tracks using the linear assignment approach
     %
     %  OBJ = LAPLinker creates a new object to link tracks using the linear
-    %  assignment approach.
+    %  assignment approach. The tracking parameters are the object's
+    %  properties.
     %
-    %  Differences with Jaqaman's approach:
-    %  * Simplified version without the repair (merge/split) phase
-    %  * Division events are tested for during new track creation
-    %  * Uses the LAPJV algorithm rather than the munkres/Hungarian
-    %  algorithm
+    %  The linear assignment approach was first demonstrated by Jaqaman et
+    %  al. In short, given a number of objects in frame T, and a number of
+    %  objects in frame T + 1, a cost matrix is computed which describes
+    %  the likelihood of two objects being the same in both frames. For
+    %  example, the straight-line (euclidean) distance could be used for
+    %  tracking moving particles. The newly detected objects in frame T + 1
+    %  are then assigned to existing tracks by minimization of the total
+    %  cost.
+    %
+    %  For the most part, this algorithm borrows heavily from Jaqaman's
+    %  approach. However, we made several modifications:
+    %    * Simplified version without the repair (merge/split) phase
+    %
+    %    * Division events are tested for during new track creation
+    %
+    %    * The Jonker-Volgenant algorithm is used rather than the
+    %      munkres/Hungarian algorithm used in the original publication.
+    %      The JV algorithm appears to yield solutions about 10x faster and
+    %      appear to be just as accurate, although no formal assessment has
+    %      been made just yet.
+    %
+    %    * A different metric for tracking non-motile cells using an
+    %      overlap score
+    %
+    %    * MATLAB support - works directly with the output from regionprops
+    %
+    %  LAPLinker Properties:
+    %  ---------------------
+    %   Solver - Name of assignment solver
+    %   LinkedBy - Property to compute linking cost
+    %   LinkCostMetric - Function to compute linking cost
+    %   LinkScoreRange - Min and max values for linking objects
+    %   MaxTrackAge - Maximum number of frames a track can go without being
+    %                 updated
+    %   TrackDivision - If true, division events will be tracked.
+    %                   Otherwise, new tracks will be created for new
+    %                   objects
+    %   DivisionParameter - Property to determine division
+    %   DivisionScoreMetric - Function to compute division cost
+    %   DivisionScoreRange - Min and max values for a division to occur
+    %   MinFramesBetweenDiv - Minimum number of frames between divisions
+    %
+    %   metadata - Struct to hold file metadata (set using
+    %              'updateMetadata')
+    %   tracks - Struct containing track information
+    %   isTrackActive - Logical vector with the same length as number of
+    %                   tracks. If element is true, track will be used for
+    %                   tracking. If false, tracking is stopped (e.g.
+    %                   object has left field of view or divided)
+    %   NumTracks - Number of tracks in the array
+    %
+    %  LAPLinker Methods:
+    %  ------------------
+    %   assignToTrack - Main method to call. Assigns new data to tracks.
+    %   updateMetadata - Sets file metadata options.
+    %   newTrack - Create a new track
+    %   updateTrack - Modify or add values to an existing track
+    %   splitTrack - Splits a track into two
+    %
+    %  Example:
+    %  % This example shows only the outline of a typical program. To see
+    %  % working examples, have a look at the 'demo' folder.
+    %  
+    %  % Declare a new object
+    %  L = LAPLinker;
+    %
+    %  % Set properties as required
+    %  L.LinkedBy = 'PixelIdxList';
+    %  L.LinkCostMetric = 'pxintersect';
+    %
+    %  for iT = 1:numFrames
+    %     %Run your segmentation code, then call regionprops to measure
+    %     %object properties. Make sure the output is a struct with a field
+    %     %as specified in the 'LinkedBy' property.
+    %     data = regionprops(mask, 'Area', 'PixelIdxList');
+    %
+    %     %Update the tracks
+    %     L = assignToTrack(L, iT, data)
+    %  end
+    %
+    %  %Retrieve the struct containing track data
+    %  tracks = L.tracks;
         
     properties
         
-        LinkedBy = 'Centroid';
+        Solver = 'lapjv';   %Algorithm to solve assignment problem
+        
+        LinkedBy = 'Centroid';  %Data fieldname used to link cells
         LinkCostMetric = 'euclidean';
         LinkScoreRange = [0, 100];
+        MaxTrackAge = 2;
         
+        TrackDivision = false;
         DivisionParameter = 'Centroid';
         DivisionScoreMetric = 'euclidean';
         DivisionScoreRange = [0, 2];
         MinFramesBetweenDiv = 10;
         
-        MaxTrackAge = 2;
-        
-        TrackDivision = false;
-        
     end
     
     properties (SetAccess = private)
-    
-        metadata
         
+        metadata  %Struct for user to store metadata
+    
+        %Data structure for track data
         tracks = struct('Frame', {},...
             'MotherInd', {}, ...
             'DaughterInd', {});
@@ -55,6 +134,7 @@ classdef LAPLinker
         end
         
         function numtracks = get.NumTracks(obj)
+            %Returns number of tracks
             
             numtracks = numel(obj.tracks);
             
@@ -71,9 +151,9 @@ classdef LAPLinker
             %created will be the same as the number of array elements.
             %
             %The resulting track data is stored as a cell array in the
-            %'tracks' property of the object. Tracks will also always
-            %contain the fields 'Frame', 'MotherInd', and 'DaughterInd'.
-            %New tracks cannot have 'Frame' as a data property.
+            %'tracks' property of the object. Tracks will always contain
+            %the fields 'Frame', 'MotherInd', and 'DaughterInd'. New tracks
+            %cannot have 'Frame' as a data property.
             %
             %Example:
             %
@@ -125,7 +205,7 @@ classdef LAPLinker
             %
             %  %Modification of values
             
-            %Validte track selection
+            %Validate track selection
             if trackInd < 1 
                 error('LAPLinker:updateTrack:TrackIndexLessThanOne', ...
                     'Track index must be 1 or higher.')
@@ -220,14 +300,18 @@ classdef LAPLinker
             %
             %  !!TODO!!
             
+            %!! TODO!! If frame goes 'backwards', there should be an error
+            
             %If data structure is empty, then create new tracks
             if numel(obj.tracks) == 0
+                
                 obj = newTrack(obj, frame, newData);
+                
             else
                 
-                %-- Compute cost matrix --
+                %--- Compute cost matrix ---%
                 
-                %Linking costs (top left)
+                %-- Linking costs (top left) --%
                 cost_to_link = zeros(nnz(obj.isTrackActive), numel(newData));
                 
                 activeTrackInd = 1:numel(obj.tracks);
@@ -241,17 +325,17 @@ classdef LAPLinker
                 end
                 cost_to_link(cost_to_link < min(obj.LinkScoreRange) | cost_to_link > max(obj.LinkScoreRange)) = Inf;
                 
-                %Non-linking cost (top right)
+                %-- Non-linking cost (top right) --%
                 altCost = 1.05 * max(cost_to_link(~isinf(cost_to_link)));
                 
                 cost_no_links = inf(numel(activeTrackInd));
                 cost_no_links(1:(size(cost_no_links, 1) + 1):end) = altCost;
 
-                %Cost to start new tracks (bottom left)
+                %-- Cost to start new tracks (bottom left) --%
                 cost_new_track = inf(numel(newLinkData));
                 cost_new_track(1:(size(cost_new_track, 1) + 1):end) = altCost;
                 
-                %Auxiliary (bottom right)
+                %-- Auxiliary (bottom right) --%
                 cost_aux = cost_to_link';
                 cost_aux(cost_aux < Inf) = min(cost_to_link(cost_to_link < Inf));
                 
@@ -259,7 +343,25 @@ classdef LAPLinker
                 cost = [cost_to_link, cost_no_links; cost_new_track, cost_aux];
                 
                 %Solve the assignment
-                rowsol = LAPLinker.lapjv(cost);
+                switch lower(obj.Solver)
+                    
+                    case {'lapjv', 'jv'}
+                        rowsol = LAPLinker.lapjv(cost);
+                        
+                    case {'munkres', 'hungarian'}
+                        rowsol = LAPLinker.munkres(cost);
+                    
+                    otherwise
+                        if exist(obj.Solver, 'file')            
+                            %Call external solver
+                            eval(['rowsol = ', obj.Solver, ';'])
+                        else
+                            error('LAPLinker:assignToTrack:UnknownSolver', ...
+                                '''%s'' is not a built-in solver and ''%s.m'' could not be found.', ...
+                                obj.Solver, obj.Solver);
+                        end
+                       
+                end
                                 
                 %Handle assignments
                 for iSol = 1:numel(rowsol)
@@ -345,7 +447,198 @@ classdef LAPLinker
                 end
             end
             
-
+        end
+        
+        function obj = updateMetadata(obj, varargin)
+            %UPDATEMETADATA  Update the metadata struct
+            %
+            %  OBJ = UPDATEMETADATA(OBJ, PARAM1, VALUE1, ... PARAMN,
+            %  VALUEN) updates the 'metadata' property. PARAM1...N should
+            %  be strings containing the name of the metadata field. The
+            %  corresponding field values should be provided in VALUE1...N.
+            %  There should be the same number of values as parameter
+            %  names.
+            %
+            %  The intent is of this function is to allow file specific
+            %  metadata to be saved (e.g. filename, pixel size, image size
+            %  etc.).
+            %
+            %  Note: Property names must be allowed by MATLAB, i.e. must
+            %  start with a letter and contain no special characters apart
+            %  from underscore.
+                        
+            if rem(numel(varargin), 2) ~= 0
+                error('LAPLinker:updateMetadata:UnmatchedParamValuePair', ...
+                    'Expected input should be matched parameter/value pairs.');                
+            end
+            
+            for ii = 1:2:numel(varargin)
+                obj.metadata.(varargin{ii}) = varargin{ii + 1};
+            end
+            
+        end
+        
+        function exportsettings(obj, varargin)
+            %EXPORTSETTINGS  Write tracking properties to text file
+            %
+            %  EXPORTSETTINGS(OBJ) will create a dialog box allowing the
+            %  user to select where to save the output file. The settings
+            %  of the object are the object properties, except for track
+            %  data and file metadata.
+            %
+            %  As an alternative, EXPORTSETTINGS(OBJ, FILE) will write the
+            %  settings to the specified FILE.
+            %
+            %  See also: LAPLinker/importsettings
+            
+            if isempty(varargin)
+                
+                [file, fpath] = uiputfile({'*.txt', '*.txt (Text file)'}, ...
+                    'Select output file');
+                
+                if isequal(file, 0) || isequal(fpath, 0)
+                    return;
+                end
+                
+                fileOut = fullfile(fpath, file);
+                
+            else
+                
+                fileOut = varargin{1};                
+                
+            end
+                        
+            %Get a list of object properties
+            props = properties(obj);
+            
+            %Exclude data properties
+            props(ismember(props, {'metadata', 'tracks', 'isTrackActive', 'NumTracks'})) = [];
+            
+            fid = fopen(fileOut, 'w');
+            
+            if fid == -1
+                error('LAPLinker:exportsettings:CouldNotOpenFileToWrite', ...
+                    'Could not open file %s to write.', ...
+                    fileout);
+            end
+            
+            fprintf(fid, '%% %s\n', datestr(now));
+            
+            for iP = 1:numel(props)
+                
+                switch lower(class(obj.(props{iP})))
+                    
+                    case 'char'
+                
+                        settingVal = sprintf('''%s''', obj.(props{iP}));
+                        
+                    case 'logical'
+                        
+                        if obj.(props{iP})
+                            
+                            settingVal = 'true';
+                            
+                        else
+                            
+                            settingVal = 'false';
+                            
+                        end
+                        
+                    case 'double'
+                        
+                        settingVal = mat2str(obj.(props{iP}));
+                        
+                end
+                
+                fprintf(fid, '%s: %s\n', props{iP}, settingVal);
+                
+            end
+            
+            fclose(fid);
+            
+        end
+        
+        function obj = importsettings(obj, varargin)
+            %IMPORTSETTINGS  Import settings from text file
+            %
+            %  IMPORTSETTINGS(OBJ) will create a dialog box allowing the
+            %  user to select which settings file to read. The settings
+            %  of the object are the object properties, except for track
+            %  data and file metadata.
+            %
+            %  As an alternative, IMPORTSETTINGS(OBJ, FILE) will read the
+            %  settings from a specified FILE.
+            %
+            %  See also: LAPLinker/EXPORTSETTINGS
+            
+            if isempty(varargin)
+                
+                [file, fpath] = uigetfile({'*.txt', '*.txt (Text file)'}, ...
+                    'Select file');
+                
+                if isequal(file, 0) || isequal(fpath, 0)
+                    return;
+                end
+                
+                fileIn = fullfile(fpath, file);
+                
+            else
+                
+                if ~exist(varargin{1}, 'file')
+                    error('LAPLinker:importsettings:InvalidFile', ...
+                        '%s was not found.', ...
+                        varargin{1});                    
+                end
+                
+                fileIn = varargin{1};                
+                
+            end
+            
+            fid = fopen(fileIn, 'r');
+            
+            if fid == -1
+                error('LAPLinker:importsettings:CouldNotOpenFileToRead', ...
+                    'Could not open file %s to read.', ...
+                    fileout);
+            end
+            
+            %Get a list of valid object properties
+            props = properties(obj);
+            
+            %Exclude data properties
+            props(ismember(props, {'metadata', 'tracks', 'isTrackActive', 'NumTracks'})) = [];
+            
+            while ~feof(fid)
+                
+                currLine = fgetl(fid);
+                
+                if strcmpi(currLine(1), '%')
+                    %Skip comments
+                    
+                    %TODO SKIP NEWLINES
+                    
+                else
+                    
+                    input = strsplit(currLine, ':');
+                    
+                    if ismember(input{1}, props)
+                        obj.(input{1}) = eval(input{2});
+                        
+                    else
+                        
+                        %Skip
+                    
+                    end
+                    
+                end
+                
+                
+                
+            end
+            
+            
+            fclose(fid);
+            
             
         end
         
@@ -356,6 +649,8 @@ classdef LAPLinker
         function cost = computecost(lastTrackData, newData, method)
             %COMPUTECOST  Compute the cost to link tracks
             %
+            %  COMPUTECOST(TRACK, DET, METHOD) computes the cost of
+            %  linking new detections DET to existing tracks TRACK.
             %  newData must be a cell. Parameters as columns, observations as
             %  rows
                        

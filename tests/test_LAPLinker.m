@@ -244,7 +244,17 @@ classdef test_LAPLinker < matlab.unittest.TestCase
                 
             end
             
-            
+            function assignToTrack_UnknownSolver_error(TestObj)
+                
+                L = LAPLinker;
+                L.Solver = 'NotASolver';
+                L = assignToTrack(L, 1, struct('Centroid', [1, 1]));
+                updatedData.Centroid = [10, 10];
+                
+                TestObj.verifyError(@() assignToTrack(L, 2, updatedData), ...
+                    'LAPLinker:assignToTrack:UnknownSolver');
+                
+            end
         end
         
         
