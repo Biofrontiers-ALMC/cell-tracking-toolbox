@@ -1,35 +1,35 @@
 classdef LAPLinker
-    %LAPLinker  Links tracks using the linear assignment approach
+    %LAPLinker  Links objects in movies using linear assignment
     %
-    %  OBJ = LAPLinker creates a new object to link tracks using the linear
-    %  assignment approach. The tracking parameters are the object's
-    %  properties.
+    %  OBJ = LAPLinker constructs a LAPLINKER object to link objects in
+    %  movies using linear assignment. The objective is to create "tracks",
+    %  which contain data corresponding to a single object over time.
     %
-    %  The linear assignment approach was first demonstrated by Jaqaman et
-    %  al. In short, given a number of objects in frame T, and a number of
-    %  objects in frame T + 1, a cost matrix is computed which describes
-    %  the likelihood of two objects being the same in both frames. For
-    %  example, the straight-line (euclidean) distance could be used for
-    %  tracking moving particles. The newly detected objects in frame T + 1
-    %  are then assigned to existing tracks by minimization of the total
-    %  cost.
+    %  Objects detected in the current frame (called "detections") are
+    %  either linked to objects from previous frames to form tracks, or new
+    %  tracks are created if no possible links are found. The likelihood of
+    %  either outcome is determined by calculating a "cost" of linking two
+    %  objects. For example, for tracking moving objects, the straight-line
+    %  (euclidean) distance between detections and last known object
+    %  positions could be used as the cost. The final outcome of each
+    %  detected object is found by solving the cost matrix using a linear
+    %  assignment algorithm which minimizes the total cost.
     %
-    %  For the most part, this algorithm borrows heavily from Jaqaman's
-    %  approach. However, we made several modifications:
+    %  The algorithm used here follows closely from Jaqaman et al.'s
+    %  original approach. However, several modifications have been made:
+    %
     %    * Simplified version without the repair (merge/split) phase
     %
     %    * Division events are tested for during new track creation
     %
-    %    * The Jonker-Volgenant algorithm is used rather than the
-    %      munkres/Hungarian algorithm used in the original publication.
-    %      The JV algorithm appears to yield solutions about 10x faster and
-    %      appear to be just as accurate, although no formal assessment has
-    %      been made just yet.
+    %    * The Jonker-Volgenant (JV) algorithm is used rather than the
+    %      munkres/Hungarian algorithm in the original publication. In
+    %      testing, the JV algorithm yields solutions about 10x faster and
+    %      appear to be just as accurate. The munkres algorithm is also
+    %      provided as an optional solver.
     %
     %    * A different metric for tracking non-motile cells using an
     %      overlap score
-    %
-    %    * MATLAB support - works directly with the output from regionprops
     %
     %  LAPLinker Properties:
     %  ---------------------
@@ -85,23 +85,30 @@ classdef LAPLinker
     %     L = assignToTrack(L, iT, data)
     %  end
     %
-    %  %Retrieve the struct containing track data
+    %  %Retrieve the struct containing track data once tracking is complete
     %  tracks = L.tracks;
-        
+    %
+    %
+    %  Credits: 
+    %    Ref: K. Jaqaman et al. Nature Methods 5, 695-702 (2008)
+    %    JV algorithm: Yi Cao, Cranfield University, from Mathworks File
+    %                  Exchange
+    %    Author: Jian Wei Tay, University of Colorado Boulder
+    
     properties
         
         Solver = 'lapjv';   %Algorithm to solve assignment problem
         
         LinkedBy = 'Centroid';  %Data fieldname used to link cells
-        LinkCostMetric = 'euclidean';
-        LinkScoreRange = [0, 100];
-        MaxTrackAge = 2;
+        LinkCostMetric = 'euclidean'; %Metric to compute linking costs
+        LinkScoreRange = [0, 100];  %Valid linking score range
+        MaxTrackAge = 2;  %How many frames a track can go before tracking stops
         
-        TrackDivision = false;
-        DivisionParameter = 'Centroid';
-        DivisionScoreMetric = 'euclidean';
-        DivisionScoreRange = [0, 2];
-        MinFramesBetweenDiv = 10;
+        TrackDivision = false;  %If true, division events will be tracked
+        DivisionParameter = 'Centroid';  %Data fieldname used to track division
+        DivisionScoreMetric = 'euclidean';  %Metric to compute division likelihood
+        DivisionScoreRange = [0, 2];  %Valid division score range
+        MinFramesBetweenDiv = 10;  %Minimum number of frames between division events
         
     end
     
@@ -120,7 +127,7 @@ classdef LAPLinker
     
     properties (Dependent)
         
-        NumTracks
+        NumTracks  %Number of tracks
         
     end
     
@@ -140,167 +147,40 @@ classdef LAPLinker
             
         end
         
-        function [obj, newTrackIndOut] = newTrack(obj, frame, dataIn)
-            %OBJ = NEWTRACK(OBJ, FIRSTFRAME, DATA) creates a new track
-            %entry in the data structure. FIRSTFRAME should be the frame
-            %number of the first frame for the track. 
-            %
-            %DATA should be a struct with fields containing the measured
-            %properties for the track (e.g. similar to the output of
-            %regionprops). If DATA is a struct array, the number of tracks
-            %created will be the same as the number of array elements.
-            %
-            %The resulting track data is stored as a cell array in the
-            %'tracks' property of the object. Tracks will always contain
-            %the fields 'Frame', 'MotherInd', and 'DaughterInd'. New tracks
-            %cannot have 'Frame' as a data property.
-            %
-            %Example:
-            %
-            %  s  = regionprops(BW,'centroid');
-            
-            newTrackIndOut = zeros(1, numel(dataIn));
-            for iTrack = 1:numel(dataIn)
-                
-                newTrackInd = numel(obj.tracks) + 1;
-                
-                %Initialize common fields
-                obj.tracks(newTrackInd).Frame = frame;
-                obj.tracks(newTrackInd).MotherInd = NaN;
-                obj.tracks(newTrackInd).DaughterInd = NaN;
-                
-                %Populate data
-                datafields = fieldnames(dataIn);
-                
-                if ismember(datafields, 'Frame')
-                    error('LAPLinker:newTrack:FramePropertyConflict', ...
-                        'The property ''Frame'' is already used and cannot be present in the input data.');
-                end
-                
-                for iF = 1:numel(datafields)
-                    obj.tracks(newTrackInd).(datafields{iF}) = ...
-                        {dataIn(iTrack).(datafields{iF})};
-                end
-                
-                %Set the track as active for tracking
-                obj.isTrackActive(newTrackInd) = true;
-                
-                %Update track list for output
-                newTrackIndOut(iTrack) = newTrackInd;
-            end
-        end
-        
-        function obj = updateTrack(obj, trackInd, frames, dataIn)
-            %UPDATETRACK  Modify track data
-            %
-            %  OBJ = UPDATETRACK(OBJ, TRACK, FRAME, DATA) inserts data into
-            %  the tracks struct. The insertion is sorted, i.e. the data is
-            %  inserted such that the track's Frame field is sequentially
-            %  increasing.
-            %
-            %  Examples:
-            %  %Pre insertion
-            %
-            %  %Post insertion
-            %
-            %  %Modification of values
-            
-            %Validate track selection
-            if trackInd < 1 
-                error('LAPLinker:updateTrack:TrackIndexLessThanOne', ...
-                    'Track index must be 1 or higher.')
-            elseif trackInd > numel(obj.tracks)
-                error('LAPLinker:updateTrack:TrackDoesNotExist', ...
-                    'Track %.0f does not exist. Number of tracks = %.0f.', ...
-                    trackInd, numel(obj.tracks))          
-            end
-            
-            %Validate input data
-            datafields = fieldnames(dataIn);
-            
-            if ismember(datafields, 'Frame')
-                error('LAPLinker:newTrack:FramePropertyConflict', ...
-                    'The property ''Frame'' is already used and cannot be present in the input data.');
-            end
-            
-            for iFF = 1:numel(frames)
-                
-                frame = frames(iFF);
-                %Update data (inserting empty matrices for missing frames)
-                if frame < obj.tracks(trackInd).Frame(1)
-                    
-                    %Insert before
-                    for iF = 1:numel(datafields)
-                        obj.tracks(trackInd).(datafields{iF}) = ...
-                            [dataIn(iFF).(datafields{iF}), ...
-                            cell(1, obj.tracks(trackInd).Frame(1) - frame - 1), ...
-                            obj.tracks(trackInd).(datafields{iF})];
-                    end
-                    
-                    %Update the Frame index
-                    obj.tracks(trackInd).Frame = [frame:(obj.tracks(trackInd).Frame(1) - 1), ...
-                        obj.tracks(trackInd).Frame];
-                    
-                elseif frame > obj.tracks(trackInd).Frame(end)
-                    
-                    %Insert after
-                    for iF = 1:numel(datafields)
-                        obj.tracks(trackInd).(datafields{iF}) = ...
-                            [obj.tracks(trackInd).(datafields{iF}), ...
-                            cell(1, frame - obj.tracks(trackInd).Frame(end) - 1), ...
-                            dataIn(iFF).(datafields{iF})];
-                    end
-                    
-                    %Update the Frame index
-                    obj.tracks(trackInd).Frame = [obj.tracks(trackInd).Frame, ...
-                        (obj.tracks(trackInd).Frame(end) + 1):frame];
-                    
-                else
-                    %Modify existing frame
-                    frameInd = obj.tracks(trackInd).Frame == frame;
-                    
-                    for iF = 1:numel(datafields)
-                        obj.tracks(trackInd).(datafields{iF}){frameInd} = ...
-                            dataIn(iFF).(datafields{iF});
-                    end
-                    
-                end
-            end
-        end
-        
-        function [obj, newTrackInd] = splitTrack(obj, trackInd, frameToSplit)
-            %Splits a track and creates a new one at the end of the track
-            %array
-            
-            fieldsToCopy = fieldnames(obj.tracks(trackInd));
-            fieldsToCopy(ismember(fieldsToCopy, {'MotherInd', 'DaughterInd', 'Frame'})) = [];
-            
-            %Determine the index to split the track
-            splitInd = find(obj.tracks(trackInd).Frame == frameToSplit, 1, 'first');
-                       
-            %Create new track
-            newTrackInd = numel(obj.tracks) + 1;
-                        
-            obj.tracks(newTrackInd).Frame = obj.tracks(trackInd).Frame(splitInd:end);
-            obj.isTrackActive(newTrackInd) = true;
-            obj.tracks(trackInd).Frame(splitInd:end) = [];
-            
-            for ii = 1:numel(fieldsToCopy)
-                obj.tracks(newTrackInd).(fieldsToCopy{ii}) = obj.tracks(trackInd).(fieldsToCopy{ii})(splitInd:end);
-                obj.tracks(trackInd).(fieldsToCopy{ii})(splitInd:end) = [];
-            end
-            
-        end
-        
         function obj = assignToTrack(obj, frame, newData)
             %ASSIGNTOTRACK  Assign data to tracks
             %
             %  OBJ = ASSIGNTOTRACK(OBJ, FRAME, DATA) assigns new data to
-            %  tracks using the linear assignment approach.
+            %  tracks using the linear assignment approach. FRAME should be
+            %  the current frame number. DATA is a struct array, with each
+            %  element being the data from a single new detection. The
+            %  properties being tracked should be a field in the struct. An
+            %  example of the appropriate structure to use is the output of
+            %  'regionprops'. If no tracks currently exist (i.e. this is
+            %  the first frame), the function will create new tracks.
             %
-            %  !!TODO!!
-            
-            %!! TODO!! If frame goes 'backwards', there should be an error
+            %  The cost of assignments vs creating new tracks are computed
+            %  using the data specified in the property 'LinkedBy'.
+            %  Currently, only two metrics are supported:
+            %     'euclidean' - Distance between new detection and last
+            %                   known position of objects (i.e. using
+            %                   'Centroid')
+            %     'pxintersect' - Number of overlapping pixels (the input
+            %                     data should have 'PixelIdxList')
+            %
+            %  The algorithm specified in the 'Solver' property of the
+            %  object is used to perform the assignment. Currently, the two
+            %  solvers built into this software are:
+            %
+            %     'lapjv' - Jonker-Volgenant assignment
+            %     'munkres' - Munkres/Hungarian algorithm
+            %
+            %  You can use your own solver by specifying the name of the
+            %  function in the 'Solver' property. Your assignment function
+            %  must take only a single input, the cost matrix, and return a
+            %  vector that contains the assignment of a row to a column.
+            %
+            %  See also: regionprops
             
             %If data structure is empty, then create new tracks
             if numel(obj.tracks) == 0
@@ -642,18 +522,188 @@ classdef LAPLinker
             
         end
         
+        function [obj, newTrackIndOut] = newTrack(obj, frame, dataIn)
+            %OBJ = NEWTRACK(OBJ, FIRSTFRAME, DATA) creates a new track
+            %entry in the data structure. FIRSTFRAME should be the frame
+            %number of the first frame for the track. 
+            %
+            %DATA should be a struct with fields containing the measured
+            %properties for the track (e.g. similar to the output of
+            %regionprops). If DATA is a struct array, the number of tracks
+            %created will be the same as the number of array elements.
+            %
+            %The resulting track data is stored as a cell array in the
+            %'tracks' property of the object. Tracks will always contain
+            %the fields 'Frame', 'MotherInd', and 'DaughterInd'. New tracks
+            %cannot have 'Frame' as a data property.
+            
+            newTrackIndOut = zeros(1, numel(dataIn));
+            for iTrack = 1:numel(dataIn)
+                
+                newTrackInd = numel(obj.tracks) + 1;
+                
+                %Initialize common fields
+                obj.tracks(newTrackInd).Frame = frame;
+                obj.tracks(newTrackInd).MotherInd = NaN;
+                obj.tracks(newTrackInd).DaughterInd = NaN;
+                
+                %Populate data
+                datafields = fieldnames(dataIn);
+                
+                if ismember(datafields, 'Frame')
+                    error('LAPLinker:newTrack:FramePropertyConflict', ...
+                        'The property ''Frame'' is already used and cannot be present in the input data.');
+                end
+                
+                for iF = 1:numel(datafields)
+                    obj.tracks(newTrackInd).(datafields{iF}) = ...
+                        {dataIn(iTrack).(datafields{iF})};
+                end
+                
+                %Set the track as active for tracking
+                obj.isTrackActive(newTrackInd) = true;
+                
+                %Update track list for output
+                newTrackIndOut(iTrack) = newTrackInd;
+            end
+        end
+        
+        function obj = updateTrack(obj, trackInd, frames, dataIn)
+            %UPDATETRACK  Modify track data
+            %
+            %  OBJ = UPDATETRACK(OBJ, TRACK, FRAME, DATA) inserts data into
+            %  the tracks struct. The insertion is sorted, i.e. the data is
+            %  inserted such that the track's Frame field is sequentially
+            %  increasing.
+            %
+            %  This function is primarily used during track assignment to
+            %  add data to existing tracks. However, the function can also
+            %  be used if manual correction of specific tracks/frames are
+            %  necessary.
+            %
+            %  Examples:
+            %  %Update the 'Centroid' field in frame 3 of track 5 
+            %  OBJ = UPDATETRACK(OBJ, 5, 3, struct('Centroid', [10, 3]));
+            
+            %Validate track selection
+            if trackInd < 1 
+                error('LAPLinker:updateTrack:TrackIndexLessThanOne', ...
+                    'Track index must be 1 or higher.')
+            elseif trackInd > numel(obj.tracks)
+                error('LAPLinker:updateTrack:TrackDoesNotExist', ...
+                    'Track %.0f does not exist. Number of tracks = %.0f.', ...
+                    trackInd, numel(obj.tracks))          
+            end
+            
+            %Validate input data
+            datafields = fieldnames(dataIn);
+            
+            if ismember(datafields, 'Frame')
+                error('LAPLinker:newTrack:FramePropertyConflict', ...
+                    'The property ''Frame'' is already used and cannot be present in the input data.');
+            end
+            
+            for iFF = 1:numel(frames)
+                
+                frame = frames(iFF);
+                %Update data (inserting empty matrices for missing frames)
+                if frame < obj.tracks(trackInd).Frame(1)
+                    
+                    %Insert before
+                    for iF = 1:numel(datafields)
+                        obj.tracks(trackInd).(datafields{iF}) = ...
+                            [dataIn(iFF).(datafields{iF}), ...
+                            cell(1, obj.tracks(trackInd).Frame(1) - frame - 1), ...
+                            obj.tracks(trackInd).(datafields{iF})];
+                    end
+                    
+                    %Update the Frame index
+                    obj.tracks(trackInd).Frame = [frame:(obj.tracks(trackInd).Frame(1) - 1), ...
+                        obj.tracks(trackInd).Frame];
+                    
+                elseif frame > obj.tracks(trackInd).Frame(end)
+                    
+                    %Insert after
+                    for iF = 1:numel(datafields)
+                        obj.tracks(trackInd).(datafields{iF}) = ...
+                            [obj.tracks(trackInd).(datafields{iF}), ...
+                            cell(1, frame - obj.tracks(trackInd).Frame(end) - 1), ...
+                            dataIn(iFF).(datafields{iF})];
+                    end
+                    
+                    %Update the Frame index
+                    obj.tracks(trackInd).Frame = [obj.tracks(trackInd).Frame, ...
+                        (obj.tracks(trackInd).Frame(end) + 1):frame];
+                    
+                else
+                    %Modify existing frame
+                    frameInd = obj.tracks(trackInd).Frame == frame;
+                    
+                    for iF = 1:numel(datafields)
+                        obj.tracks(trackInd).(datafields{iF}){frameInd} = ...
+                            dataIn(iFF).(datafields{iF});
+                    end
+                    
+                end
+            end
+        end
+        
+        function [obj, newTrackInd] = splitTrack(obj, trackInd, frameToSplit)
+            %SPLITTRACK  Split an existing track at a specific frame
+            %
+            %  OBJ = SPLITTRACK(OBJ, TRACKID, FRAME) will split the track
+            %  specified by TRACKID at the frame FRAME. A new track will
+            %  be created containing the data from FRAME+1...END.
+            %
+            %  [OBJ, NEWTRACK] = SPLITTRACK(...) will also return the ID of
+            %  the new track (the new track is created at the end of the
+            %  array).
+            %
+            %  This function is used primarily during track assignment if a
+            %  division event was detected to split the mother-daughter
+            %  track. 
+            %
+            %  Example:
+            %  %Split track 5 at frame 3
+            %  OBJ = SPLITTRACK(OBJ, 5, 3);
+            
+            fieldsToCopy = fieldnames(obj.tracks(trackInd));
+            fieldsToCopy(ismember(fieldsToCopy, {'MotherInd', 'DaughterInd', 'Frame'})) = [];
+            
+            %Determine the index to split the track
+            splitInd = find(obj.tracks(trackInd).Frame == frameToSplit, 1, 'first');
+                       
+            %Create new track
+            newTrackInd = numel(obj.tracks) + 1;
+                        
+            obj.tracks(newTrackInd).Frame = obj.tracks(trackInd).Frame(splitInd:end);
+            obj.isTrackActive(newTrackInd) = true;
+            obj.tracks(trackInd).Frame(splitInd:end) = [];
+            
+            for ii = 1:numel(fieldsToCopy)
+                obj.tracks(newTrackInd).(fieldsToCopy{ii}) = obj.tracks(trackInd).(fieldsToCopy{ii})(splitInd:end);
+                obj.tracks(trackInd).(fieldsToCopy{ii})(splitInd:end) = [];
+            end
+            
+        end
+
     end
     
-    methods (Static)
+    methods (Access = private, Hidden = true, Static)
         
         function cost = computecost(lastTrackData, newData, method)
             %COMPUTECOST  Compute the cost to link tracks
             %
             %  COMPUTECOST(TRACK, DET, METHOD) computes the cost of
             %  linking new detections DET to existing tracks TRACK.
-            %  newData must be a cell. Parameters as columns, observations as
-            %  rows
-                       
+            %  newData must be a cell. Parameters as columns, observations
+            %  as rows
+            %
+            %  The current METHODs supported are:
+            %   'euclidean' - sqrt(sum((A - D).^2))
+            %   'pxintersect' - Number of overlapping pixels (the input
+            %   data should have 'PixelIdxList')
+            
             switch lower(method)
                 
                 case 'euclidean'
@@ -677,10 +727,6 @@ classdef LAPLinker
             end
                         
         end
-    
-    end
-    
-    methods (Access = private, Hidden = true, Static)
         
         function [rowsol, mincost, unassigned_cols] = munkres(costMatrix)
             %MUNKRES  Munkres (Hungarian) linear assignment
