@@ -107,6 +107,27 @@ classdef test_LAPLinker < matlab.unittest.TestCase
 
             end
             
+            function splitTrack_InvalidFrame(TestObj)
+                %Test that error is thrown if an attempt is made to split a
+                %track in a frame that does not exist
+                
+                %Create some test data
+                L = LAPLinker;
+                L.MaxTrackAge = 2;
+                
+                centroids = rand(10, 2);
+                
+                for iT = 1:size(centroids, 1)
+                    L = assignToTrack(L, iT, struct('Centroid', centroids(iT, :)));
+                end
+                
+                TestObj.verifyError(@() splitTrack(L, 1, 12), ...
+                    'LAPLinker:splitTrack:InvalidFrame');
+                
+                
+            end
+            
+            
             function assignToTrack_division(TestObj)
                 
                 %Create some test data

@@ -259,7 +259,6 @@ classdef LAPLinker
                             if age > obj.MaxTrackAge
                                 obj.isTrackActive(activeTrackInd(iSol)) = false;
                             end
-                            
                         end
                         
                     else
@@ -280,20 +279,30 @@ classdef LAPLinker
                                 
                                 %Compute the division cost matrix
                                 for acTr = 1:numel(activeTrackInd)
-                                    %Compare data to each other object in previous frame
-                                    if obj.tracks(activeTrackInd(acTr)).Frame(1) >= frame
+                                    
+                                    if obj.tracks(activeTrackInd(acTr)).Frame(1) >= frame || ...
+                                            obj.tracks(activeTrackInd(acTr)).Frame(end) < frame
+                                        
+                                        %Check if the track is an valid
+                                        %candidate
                                         cost_to_divide(acTr) = Inf;
+                                        
                                     elseif ~isnan(obj.tracks(activeTrackInd(acTr)).MotherInd) && ...
                                             (frame - obj.tracks(activeTrackInd(acTr)).Frame(1)) < obj.MinFramesBetweenDiv
+                                        
                                         %Don't let cells divide too quickly
                                         cost_to_divide(acTr) = Inf;
+                                        
                                     else
+                                        
                                         lastTrackData = obj.tracks(activeTrackInd(acTr)).(obj.DivisionParameter){end - 1};
                                         cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
+                                        
                                     end
+
                                 end
                                 
-                                %Block invalid mitosis events
+                                %Block invalid division events
                                 cost_to_divide(cost_to_divide < min(obj.DivisionScoreRange) | cost_to_divide > max(obj.DivisionScoreRange)) = Inf;
                                 
                                 [min_div_cost, min_div_ind] = min(cost_to_divide);
@@ -565,6 +574,7 @@ classdef LAPLinker
                 
                 %Update track list for output
                 newTrackIndOut(iTrack) = newTrackInd;
+               
             end
         end
         
@@ -667,11 +677,20 @@ classdef LAPLinker
             %  %Split track 5 at frame 3
             %  OBJ = SPLITTRACK(OBJ, 5, 3);
             
+            %Determine the index to split the track
+            splitInd = find(obj.tracks(trackInd).Frame == frameToSplit, 1, 'first');
+            if isempty(splitInd)
+                %Check that the frame to split on actually exists
+                error('LAPLinker:splitTrack:InvalidFrame', ...
+                    'Frame %.0f is not in track %.0f', frameToSplit, trackInd);
+                keyboard
+            end
+
+            
             fieldsToCopy = fieldnames(obj.tracks(trackInd));
             fieldsToCopy(ismember(fieldsToCopy, {'MotherInd', 'DaughterInd', 'Frame'})) = [];
             
-            %Determine the index to split the track
-            splitInd = find(obj.tracks(trackInd).Frame == frameToSplit, 1, 'first');
+
                        
             %Create new track
             newTrackInd = numel(obj.tracks) + 1;
@@ -679,6 +698,10 @@ classdef LAPLinker
             obj.tracks(newTrackInd).Frame = obj.tracks(trackInd).Frame(splitInd:end);
             obj.isTrackActive(newTrackInd) = true;
             obj.tracks(trackInd).Frame(splitInd:end) = [];
+            
+            if numel(obj.tracks(newTrackInd).Frame) == 0
+                keyboard
+            end
             
             for ii = 1:numel(fieldsToCopy)
                 obj.tracks(newTrackInd).(fieldsToCopy{ii}) = obj.tracks(trackInd).(fieldsToCopy{ii})(splitInd:end);
