@@ -1,14 +1,14 @@
 # Linear Assignment Tracking
 
-The aim of this project is to develop code that can perform object tracking using the Linear Assignment framework, proposed by Jaqaman et al.
+This repository holds the *source code* for implementing object tracking using the linear assignment approach. 
 
 ## Downloading and using the toolbox
 
-Full instructions on how to download, install, and use the toolbox is on the [Project Wiki](https://biof-git.colorado.edu/core-code/lap-cell-tracker/wikis//home).
+Full instructions on how to download, install, and use the toolbox is on the [Project Wiki](https://biof-git.colorado.edu/biofrontiers-imaging/lap-cell-tracker/wikis/home).
 
 ## Downloading the source code
 
-The source code is available on the [biof-git repository](https://biof-git.colorado.edu/core-code/lap-cell-tracker). The ``master`` branch contains the latest stable code, while the ``development`` branch contains daily builds (note: these may not be working).
+The source code is available on the [biof-git repository](https://biof-git.colorado.edu/biofrontiers-imaging/lap-cell-tracker). The ``master`` branch contains the latest stable code, while the ``dev`` branch contains daily builds. You should only use the dev branch if you know what you are doing.
 
 ### Using the Gitlab interface
 
@@ -54,5 +54,21 @@ The directory of the Git repository is arranged according to the best practices 
 | ``tbx\lap-tracker`` |  Main toolbox code                                                                    |
 | ``tbx\docs``        |  Examples and MATLAB user documentation                                               |
 | ``build``           |  Files for building the toolbox (typically a MATLAB project (.prj) file and an icon)  |
-| ``scripts``         |  Examples of scripts for running the code                                             |
 | ``tests``           |  Unit tests                                                                           |
+### Contributing to the code
+
+#### Reporting bugs and issues
+
+Please report bugs and issues using the [Issues Tracker](https://biof-git.colorado.edu/biofrontiers-imaging/lap-cell-tracker/issues).
+
+#### Merge/Pull requests
+
+To contribute code directly, please submit a [Merge Request](https://docs.gitlab.com/ee/gitlab-basics/add-merge-request.html).
+
+Note: In general, your code will have to pass the unit tests listed in the `tests` folder. You can check that they do by using the [`runtests` function in MATLAB](https://www.mathworks.com/help/matlab/ref/runtests.html).
+
+References
+----------
+
+K. Jaqaman, et al. "Robust single particle tracking in live cell time-lapse sequences" Nature Methods 5, 695-702 (2008)
+
