@@ -1,16 +1,16 @@
 bfr = BioformatsImage('teto_red50_xy0002.nd2');
 ROI = [1320, 1050, 340, 400];
 
-vr = VideoWriter('output.avi');
-vr.Quality = 100;
-vr.FrameRate = 5;
-
-vr_an = VideoWriter('output2.avi');
-vr_an.Quality = 100;
-vr_an.FrameRate = 5;
-
-open(vr);
-open(vr_an);
+% vr = VideoWriter('output.avi');
+% vr.Quality = 100;
+% vr.FrameRate = 5;
+% 
+% vr_an = VideoWriter('output2.avi');
+% vr_an.Quality = 100;
+% vr_an.FrameRate = 5;
+% 
+% open(vr);
+% open(vr_an);
 
 TL = LAPLinker;
 TL.LinkedBy = 'PixelIdxList';
@@ -28,8 +28,9 @@ for iT = 1:(bfr.sizeT - 2)
 
     I = getPlane(bfr, 1, '555-mOrange', iT, 'ROI', ROI);
     
-    IBF = getFalseColor(bfr, 1, 'Red', iT, 'ROI', ROI);
-    IBF = double(IBF)/65535;
+    IBF = getPlane(bfr, 1, 'Red', iT, 'ROI', ROI);
+    IBF = repmat((double(IBF) * 2)/65535, 1, 1, 3);
+    IBF(IBF > 1) = 1;
     
     mask = fluorescenceSeg(I, struct('thFactor', 4));
         
@@ -37,7 +38,11 @@ for iT = 1:(bfr.sizeT - 2)
     outlines = imdilate(outlines, ones(1));
     Iout = showoverlay(double(I), outlines, 'normalize', true);
     
-    writeVideo(vr, [IBF, Iout]);
+    
+    Iout1 = [IBF, Iout];
+    Iout1 = imresize(Iout1, 2, 'nearest');
+    
+%     writeVideo(vr, Iout1);
     
     cellData = regionprops(mask, I, 'Centroid', 'MajorAxisLength', 'MeanIntensity', 'PixelIdxList');
     
@@ -50,22 +55,24 @@ for iT = 1:(bfr.sizeT - 2)
             Iout = insertText(Iout, TL.tracks(iTrack).Centroid{end}, iTrack,...
                 'BoxOpacity', 0,'TextColor', 'blue', 'FontSize', 15, 'Font', 'Roboto Black', ...
                 'AnchorPoint', 'center');
-            
 
         end
     end    
     
-    writeVideo(vr_an, [IBF, Iout]);
+    Iout2 = [IBF, Iout];
+    Iout2 = imresize(Iout2, 2, 'nearest');
     
-    [A,map] = rgb2ind([IBF, Iout],256);
+%     writeVideo(vr_an, Iout2);
+    
+    [A,map] = rgb2ind(Iout2, 256);
 
     
-%     if iT == 1
-%         imwrite(A,map,'movie.gif', 'Loopcount', inf, 'DelayTime', 0.14);
-%         
-%     else
-%         imwrite(A,map, 'movie.gif', 'Writemode', 'append', 'DelayTime', 0.14);
-%     end   
+    if iT == 1
+        imwrite(A, map,'movie.gif', 'Loopcount', inf, 'DelayTime', 0.14);
+        
+    else
+        imwrite(A, map, 'movie.gif', 'Writemode', 'append', 'DelayTime', 0.14);
+    end   
     
 end
 
