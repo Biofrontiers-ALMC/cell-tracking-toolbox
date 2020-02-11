@@ -47,17 +47,17 @@ for iT = 1:(bfr.sizeT - 2)
         
     for iTrack = 1:TL.NumTracks
         
-        currTrack = TL.tracks(iTrack);
+        currTrack = TL.tracks.Tracks(iTrack);
         
-        if iT >= currTrack.Frame(1) && iT <= currTrack.Frame(end)
+        if iT >= currTrack.Frames(1) && iT <= currTrack.Frames(end)
             
-            trackCentroid = cat(2,currTrack.Centroid);
+            trackCentroid = cat(2,currTrack.Data.Centroid);
             
             if isfield(currTrack, 'RegCentroid')
-                Iout = insertText(Iout, currTrack.RegCentroid{end}, iTrack,...
+                Iout = insertText(Iout, currTrack.Data.RegCentroid{end}, iTrack,...
                     'BoxOpacity', 0,'TextColor',[237, 85, 59]./255);
             else
-                Iout = insertText(Iout, currTrack.Centroid{end}, iTrack,...
+                Iout = insertText(Iout, currTrack.Data.Centroid{end}, iTrack,...
                     'BoxOpacity', 0,'TextColor', 'blue', 'FontSize', 15, 'Font', 'Roboto Black', ...
                     'AnchorPoint', 'center');
             end
@@ -85,6 +85,9 @@ end
 
 close(vr_an);
 
+array = TL.tracks;
+
+save('trackdata.mat', 'array');
 
 %% Plot data
 

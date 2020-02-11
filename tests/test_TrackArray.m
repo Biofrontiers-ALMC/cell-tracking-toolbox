@@ -2,7 +2,7 @@ classdef test_TrackArray < matlab.unittest.TestCase
     
     methods (Test)
         
-        function addTrack_singleFrame(testCase)      
+        function addTrack_singleTrack(testCase)      
             %Add a single track to the array
             %This test defines the expected output structure.
             
@@ -10,7 +10,7 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
             testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], 'Classification', 'Blue');
             
-            array = addTrack(array, 1, testdata);
+            [array, newTrackID] = addTrack(array, 1, testdata);
             
             expectedData = struct(...
                 'ID', 1, ...
@@ -23,9 +23,48 @@ classdef test_TrackArray < matlab.unittest.TestCase
                 'Classification', {{'Blue'}}));
             
             testCase.assertEqual(array.Tracks(1), expectedData);
+            testCase.assertEqual(newTrackID, 1);
             
         end
        
+        function addTrack_multipleTracks(testCase)
+            
+            array = TrackArray;
+            
+            testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], 'Classification', 'Blue');
+            testdata(2).Length = 5;
+            testdata(2).PxIdxList = [30 10 5];
+            testdata(2).Classification = 'Yellow';
+            
+            [array, newTrackID] = addTrack(array, 1, testdata);
+            
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', 1, ...
+                'Data', struct(...            
+                'Length', {{10}},...
+                'PxIdxList', {{[10, 20 30]}},...
+                'Classification', {{'Blue'}}));
+            
+            expectedData2 = struct(...
+                'ID', 2, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', 1, ...
+                'Data', struct(...
+                'Length', {{5}},...
+                'PxIdxList', {{[30, 10 5]}},...
+                'Classification', {{'Yellow'}}));
+            
+            
+            testCase.assertEqual(array.Tracks(1), expectedData);
+            testCase.assertEqual(array.Tracks(2), expectedData2);
+            testCase.assertEqual(newTrackID, [1, 2]);
+            
+        end
+        
         function updateTrack_appendToStart(testCase)
             %Update by adding frame to the start
             %This test defines the expected output structure.
@@ -83,6 +122,34 @@ classdef test_TrackArray < matlab.unittest.TestCase
             testCase.assertEqual(array.Tracks(1), expectedData);
             
         end  
+        
+        function updateTrack_motherDaughterIDs(testCase)
+            
+            array = TrackArray;
+            
+            testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], 'Classification', 'Blue');
+            
+            [array, newTrackID] = addTrack(array, 1, testdata);
+            
+            array = setMotherID(array, 1, 5);
+            array = setDaughterID(array, 1, [10 11]);
+            
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', 5, ...
+                'DaughterID', [10 11], ...
+                'Frames', 1, ...
+                'Data', struct(...
+                'Length', {{10}},...
+                'PxIdxList', {{[10, 20 30]}},...
+                'Classification', {{'Blue'}}));
+            
+            testCase.assertEqual(array.Tracks(1), expectedData);
+            
+            
+            
+        end
+        
         
         function updateTrack_modifyExisting(testCase)
             %Update by adding frame to the end

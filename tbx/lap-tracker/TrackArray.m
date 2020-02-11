@@ -272,12 +272,30 @@ classdef TrackArray
                     obj.Tracks(newTrackIdx).Data.(props{iP}) = {trackData(iTrack).(props{iP})};
                 end
                 
+                %Return the new track ID
+                newTrackID(iTrack) = obj.Tracks(newTrackIdx).ID;
+                
             end
             
-            %Return the new track ID
-            newTrackID(iTrack) = obj.Tracks(newTrackIdx).ID;
+        end
+        
+        function obj = setMotherID(obj, trackID, motherID)
+            
+            %Check that track exists
+            trackIndex = findtrack(obj, trackID, true);
+            obj.Tracks(trackIndex).MotherID = motherID;
             
         end
+        
+        function obj = setDaughterID(obj, trackID, daughterID)
+            
+            %Check that track exists
+            trackIndex = findtrack(obj, trackID, true);
+            obj.Tracks(trackIndex).DaughterID = daughterID;
+            
+        end
+
+        
         
         function obj = updateTrack(obj, trackID, frameIndex, trackData, varargin)
             %UPDATETRACK  Update the specified track
@@ -298,18 +316,7 @@ classdef TrackArray
             
             %Update the track depending on the position of the frame(s)
             for frame = frameIndex
-                
-                %Update the mother/daughterIDs
-                if isfield(trackData, 'MotherID')
-                    obj.Tracks(trackIndex).MotherID = trackData.MotherID;
-                    trackData = rmfield(trackData, 'MotherID');
-                end
-                
-                if isfield(trackData, 'DaugtherID')
-                    obj.Tracks(trackIndex).MotherID = trackData.DaughterID;
-                    trackData = rmfield(trackData, 'DaugtherID');
-                end
-                
+ 
                 %Get current (existing) data fields
                 currDataFields = fieldnames(obj.Tracks(trackIndex).Data);
                 
@@ -411,7 +418,6 @@ classdef TrackArray
 %                     
                     
                 end
-            
             
             end
             
@@ -615,109 +621,375 @@ classdef TrackArray
         end
         
         
-        %--- Export data (TODO) ---%
-        function exportToCSV(obj, fn)
+        
+        %--- Traversal functions ---%
+        function IDout = traverse(obj, rootTrackID, varargin)
+            %TRAVERSE  Return track IDs in specified order
+            %
+            %  M = TRAVERSE(OBJ, ROOTTRACKID) will traverse the tree in the
+            %  specified order, returning track IDs in the vector M.
+            %
+            %  Currently, only preorder traversal is supported, e.g.
+            %  the order starts with the root, then down the left tree,
+            %  then the right tree.
             
-            fid = fopen(fn, 'w');
-            
-            fprintf(fid, 'TID, MotherIdx, DaughterIdx1, DaughterIdx2, Frame, ');
-            
-            fprintf(fid,'%s ,', obj.TrackedDataFields{1:end-1});
-            fprintf(fid,'%s \n', obj.TrackedDataFields{end});
-            
-            for iTrack = 1:numel(obj)
+            %Pre-order traversal
+            queue = rootRID;
+            IDout = [];
+            while ~isempty(queue)
                 
-                ct = obj.getTrack(iTrack);
+                IDout =[IDout, queue(1)]; %#ok<AGROW>
+                cid = queue(1);
+                queue(1) = [];
                 
-                fprintf(fid, '%d, %d, %d, %d', ct.ID, ct.MotherIdx, ct.DaughterIdxs(1), ct.DaughterIdxs(end));
-                
-                for iF = 1:ct.NumFrames
-                    
-                    if iF > 1
-                        fprintf(fid, ', , , ');
-                    end
-                    
-                    fprintf(fid, ', %d', ct.FrameIndex(iF));
-                    
-                    for iP = 1:numel(obj.TrackedDataFields)
-                        
-                        if numel(ct.Tracks(iF).(obj.TrackedDataFields{iP})) > 5
-                            
-                            fprintf(fid, ', %%');
-                            
-                        elseif numel(ct.Tracks(iF).(obj.TrackedDataFields{iP})) > 1
-                            
-                            fprintf(fid, ', %s', mat2str(ct.Tracks(iF).(obj.TrackedDataFields{iP}), 3));
-                            
-                        else
-                            fprintf(fid, ', %d', ct.Tracks(iF).(obj.TrackedDataFields{iP}));
-                            
-                        end
-                    end
-                    fprintf(fid, '\n');
-                end
-                fprintf(fid, '\n');
+                queue = [obj.tblData(cid).DaughterIDs, queue]; %#ok<AGROW>
+                queue(isnan(queue)) = [];
                 
             end
-            
-            fclose(fid);
-            
             
         end
         
-        function structOut = struct(obj)
-            %STRUCT  Convert the object to struct
+        function treeplot(obj, rootTrackID, varargin)
+            %TREEPLOT  Plot track lineage as a binary tree
             %
-            %  STRUCT(OBJ) will convert the object to a MATLAB
-            %  structured array.
+            %  TREEPLOT(OBJ) will plot the tree in the current axes. By
+            %  default, the tree will be plotted with branches growing
+            %  upwards, and the y-axis will be the height of each node.
+            %
+            %  The tree is drawn using a grid-based algorithm, producing a
+            %  plot similar to tournament brackets, where the branches in
+            %  each level are evenly spaced apart.
+            %
+            %  TREEPLOT(OBJ, PROPERTY) will plot the tree with each node
+            %  separated by the property specified. For example, to plot
+            %  the nodes positioned by the 'distance' property: PLOT(OBJ,
+            %  'distance')
+            %
+            %  TREEPLOT(OBJ, 'direction') will plot the tree growing in the
+            %  direction specified. By default, the 'direction' plotted is
+            %  'up'. The following directions are allowed:
+            %       'up'  - Root is at the bottom of plot, branches grow
+            %               upwards.
+            %     'down'  - Root is at the top of the plot, branches grow
+            %               downwards.
+            %     'right' - Root is on the left of plot, branches grow
+            %               right.
+            %
+            %  TREEPLOT(OBJ, ..., 'cumuldist', true) will plot the nodes
+            %  separation cumulatively.
+            %
+            %  TREEPLOT(OBJ, ..., 'symmetric') will scale the non-data axis so
+            %  that the tree is centered in the figure. This could make
+            %  plots with missing branches look better.
+            %
+            %Implementation notes:
+            %
+            %  * During the first part of the code, the algorithm assigns X
+            %    and Y values to each node in the tree, defined as though
+            %    the tree is growing upwards. To get the tree growing in
+            %    different directions, these X and Y values are rotated
+            %    before plotting.
+            %
+            %  The following describe the basic principles of the
+            %  algorithm:
+            %
+            %  * The tree is traversed in a single breadth-first traverse,
+            %    to assign a position to each node.
+            %
+            %  * At the lowest levels, the nodes should be spaced evenly
+            %    apart. Thus the maximum width of the tree (in pixels) will
+            %    be 2 x 2^K - 1 (-1 because one of the edges is not drawn).
+            %    K is the maximum height of the tree (h = 0 is the root
+            %    node).
+            %
+            %  * The root should be at the very center of the tree, so root
+            %    position should be (2 * 2^K)/2 = 2^K.
+            %
+            %  * To keep each parent centered over its children, each child
+            %    node should be moved by +/- 2^(K - h) compared to the
+            %    parent (e.g. in a 2 height tree, level 1 moves 2 steps
+            %    away, level 2 moves 1 step away).
+            %
+            %  * Missing branches should be treated as though they exist
+            %    and no nodes should pass through the space.
+            %
+            %  * Because each node is spaced progressively further apart,
+            %    the algorithm does not produce overlapping node positions.
+            %
+            %  * If nodes are labelled, the root and leaf nodes will appear
+            %    outside the border of the image.
             
-            %Initialize the track data struct
-            structOut.TrackData = struct('FirstFrame', {}, ...
-                'LastFrame', {}, ...
-                'MotherIdx', {}, ...
-                'DaughterIdx', {});
+            %Throw an error if the tree is empty
+            if numel(obj.Tracks) == 0
+                error('TrackArray:treeplot:NoTracks', 'There are no tracks');                
+            end
             
-            trackProps = obj.TrackedDataFields;
+            %Default plotting options
+            plotDirection = 'up';
+            axSymmetric = false;
             
-%             for iP = 1:numel(trackProps)
-%                 structOut.TrackData.(trackProps{iP}) = {};
-%             end
-            
-            structOut.TrackData(obj.NumTracks).FirstFrame = 0;
-            
-            
-            %Copy the data
-            for iTrack = 1:obj.NumTracks
+            %Parse input arguments
+            iP = 1;
+            while iP <= numel(varargin)
                 
-                ct = getTrack(obj, iTrack);
-                
-                structOut.TrackData(iTrack).FirstFrame = ct.FirstFrame;
-                structOut.TrackData(iTrack).LastFrame = ct.LastFrame;
-                structOut.TrackData(iTrack).MotherIdx = ct.MotherIdx;
-                structOut.TrackData(iTrack).DaughterIdx = ct.DaughterIdxs;
-                structOut.TrackData(iTrack).NumFrames = ct.NumFrames;
-                structOut.TrackData(iTrack).FrameIndex = ct.FrameIndex;
-                
-                for iP = 1:numel(trackProps)
-                    structOut.TrackData(iTrack).(trackProps{iP}) = ...
-                       getData(ct, trackProps{iP});
+                switch lower(varargin{iP})
+                    
+                    case 'direction'
+                        plotDirection = varargin{iP + 1};
+                        iP = iP + 2;
+                        
+                    case {'cumdist', 'cumuldist'}
+                        iP = iP + 2;
+                        
+                    case 'symmetric'
+                        axSymmetric = true;
+                        iP = iP + 1;
+                        
+                    otherwise
+                        error('Unknown input');
+
                 end
                 
             end
             
+            %To start, traverse the tree breadthfirst. To do so, we create
+            %a queue (LIFO) starting at the root node.
             
-            %Copy the metadata
-            structOut.MeanDeltaT = obj.MeanDeltaT;
-            structOut.Timestamps = obj.FileMetadata.Timestamps;
-            structOut.TimestampUnit = obj.FileMetadata.TimestampUnit;
-            structOut.PxSize = obj.FileMetadata.PxSize;
-            structOut.PxSizeUnit = obj.FileMetadata.PxSizeUnit;
-            structOut.ImgSize = obj.FileMetadata.ImgSize;
-            structOut.NumTracks = obj.NumTracks;
-            structOut.NumFrames = obj.NumFrames;
-            structOut.TrackedDataFields = obj.TrackedDataFields;
-            structOut.CreatedOn = obj.CreatedOn;
-            structOut.Filename = obj.Filename;
+            %Create a struct for node and line positions
+            nodes = struct('ID', {}, 'ParentIndex', {}, ...
+                'isLeft', {}, 'isRight', {}, ...
+                'X', {}, 'Y', {}, ...
+                'lineX', {}, 'lineY', {}, ...
+                'Height', {});
+            
+            %Initialize the root node and node pointer
+            ptrNode = 1;
+            
+            nodes(ptrNode).ID = rootTrackID;
+            nodes(ptrNode).Height = 1;
+            
+            %Traverse the tree
+            while ptrNode <= numel(nodes)
+                
+                trackIndex = findtrack(obj, nodes(ptrNode).ID, true);
+                
+                %Add the children node(s) (if any) to the queue 
+                if ~isnan(obj.Tracks(trackIndex).DaughterID)
+                    
+                    newNode = numel(nodes) + 1;
+                    nodes(newNode).ID = obj.Tracks(trackIndex).DaughterID(1);
+                    nodes(newNode).ParentIndex = ptrNode;
+                    nodes(newNode).isLeft = true;
+                    nodes(newNode).isRight = false;
+                    nodes(newNode).Height = nodes(ptrNode).Height + 1;
+                    
+                    if numel(obj.Tracks(trackIndex).DaughterID) == 2
+                        
+                        newNode = numel(nodes) + 1;
+                        nodes(newNode).ID = obj.Tracks(trackIndex).DaughterID(2);
+                        nodes(newNode).ParentIndex = ptrNode;
+                        nodes(newNode).isLeft = false;
+                        nodes(newNode).isRight = true;
+                        nodes(newNode).Height = nodes(ptrNode).Height + 1;
+                        
+                    end
+                    
+                end
+
+                %Assign X and Y values to the node
+                if ptrNode == 1
+                                        
+                    %Handle the root
+                    nodes(ptrNode).X = 0;
+                    nodes(ptrNode).Y = obj.Tracks(trackIndex).Frames(end);
+                    
+                    %Draw a line from (0,0) to the root node
+                    nodes(ptrNode).lineX = [nodes(ptrNode).X, nodes(ptrNode).X, nodes(ptrNode).X];
+                    nodes(ptrNode).lineY = [obj.Tracks(trackIndex).Frames(1), nodes(ptrNode).Y, nodes(ptrNode).Y];
+                    
+                else
+                    
+%                     %Calculate the X position of the current node 
+%                     nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X;
+%                     nodes(ptrNode).Y = obj.Tracks(nodes(ptrNode).ID).Frames(end);
+                    
+                end
+                
+                %Move pointer to next node
+                ptrNode = ptrNode + 1;
+                
+            end
+            
+            %Return to the tree and add offsets
+            treeHeight = max([nodes.Height]);
+            
+            for ptrNode = 2:numel(nodes)
+                                    
+                if nodes(ptrNode).isLeft
+                    
+%nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X
+                    nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X - 2^(treeHeight - nodes(ptrNode).Height);
+                else
+                    nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X + 2^(treeHeight - nodes(ptrNode).Height);
+                end
+                
+                %Draw the bracket lines connecting the node to its
+                %parent
+                nodes(ptrNode).lineX = [nodes(nodes(ptrNode).ParentIndex).X ...
+                    nodes(ptrNode).X...
+                    nodes(ptrNode).X];
+                nodes(ptrNode).lineY = [nodes(nodes(ptrNode).ParentIndex).Y...
+                    nodes(nodes(ptrNode).ParentIndex).Y...
+                    nodes(ptrNode).Y];
+            
+            end
+            
+            
+            %Collect actual X and Y values for plotting
+            switch lower(plotDirection)
+                
+                case 'up'
+                    %Branches grow upwards and root is at bottom of tree
+                    
+                    X = [nodes.X];
+                    Y = [nodes.Y];
+                    
+                    LineX = cat(1, nodes.lineX)';
+                    LineY = cat(1, nodes.lineY)';
+                
+                case 'down'
+                    %Branches grow downwards and root is at bottom of tree
+                    %Rotation matrix = [1 0; 0 -1];
+                    
+                    X = [nodes.X];
+                    Y = -[nodes.Y];
+                    
+                    LineX = cat(1, nodes.lineX)';
+                    LineY = -cat(1, nodes.lineY)';
+                                        
+                case 'right'
+                    %Branches grow right and root is on the left
+                    %Rotation matrix = [0 1; -1 0] for 90 deg clockwise
+                    
+                    X = [nodes.Y];
+                    Y = -[nodes.X];
+                    
+                    LineX = cat(1, nodes.lineY)';
+                    LineY = -cat(1, nodes.lineX)';
+                    
+            end
+            
+            %Due to the way MATLAB handles 'line' objects, we have to
+            %detect if hold is on for the figure ourselves.
+            
+            if ~ishold
+                %Overwrite the currently selected figure
+                newplot(gcf);
+            end
+            
+            %Draw the lines connecting nodes to parents
+            line(LineX, LineY, 'Color','black')
+            
+            %Tidy up the plots and insert node labels depending on the
+            %direction of the plot
+            switch lower(plotDirection)
+                
+                case 'up'
+                    
+                    %Offset the labels to the right and slightly below the
+                    %node center
+                    text(0, - 0.05, num2str(nodes(1).ID), 'HorizontalAlignment', 'center'); %Root
+                    text(X(2:end) + 0.2, Y(2:end) - 0.1, strsplit(num2str([nodes(2:end).ID])))
+                    
+                    set(gca, 'xTick', [])
+                    
+                    if axSymmetric
+                        xLim = get(gca, 'XLim');
+                        set(gca, 'XLim', [-max(abs(xLim)) max(abs(xLim))]);
+                    end
+                    
+                case 'down'
+                    
+                    %Offset the labels to the right and slightly above the
+                    %node center
+                    text(0, 0.2, num2str(nodes(1).ID), 'HorizontalAlignment', 'center'); %Root
+                    text(X(2:end) + 0.2, Y(2:end) + 0.2, strsplit(num2str([nodes(2:end).ID])))
+                    
+                    %Invert the yaxis tick mark labels
+                    yTicks = get(gca, 'yTick');
+                    set(gca, 'yTickLabels', -yTicks);                    
+                    
+                    set(gca, 'xTick', [])                    
+                    
+                    if axSymmetric
+                        xLim = get(gca, 'XLim');
+                        set(gca, 'XLim', [-max(abs(xLim)) max(abs(xLim))]);
+                    end
+                    
+                case 'right'
+                    
+                    %Offset the labels to the right and slightly above the
+                    %node center
+                    text(- 0.1, 0, nodes(1).ID); %Root
+                    text(X(2:end) + 0.1, Y(2:end), {nodes(2:end).ID})
+                    
+                    set(gca, 'yTick', [])
+                    
+                    if axSymmetric
+                        yLim = get(gca, 'YLim');
+                        set(gca, 'YLim', [-max(abs(yLim)) max(abs(yLim))]);
+                    end
+            end
+                        
+        end
+        
+        
+        
+        
+        
+        %--- Export data (TODO) ---%
+        function export(obj, outputFN, varargin)
+            %EXPORT  Export track data to various formats
+            %
+            %  EXPORT(OBJ, OUTPUTFN) will export the track data and file
+            %  metadata. The output format will be determined from the
+            %  extension of the output file.
+            %
+            %  Supported output formats are: CSV
+           
+            if ~exist('outputFN', 'var')
+                
+                [FN, outPath] = uiputfile({'*.csv', 'Comma-separated value (*.csv)'});
+                
+                if isequal(FN, 0)
+                    return;                    
+                end
+                
+                outputFN = fullfile(outPath, FN);
+                
+            end
+            
+            [outputDir, ~, outputFormat] = fileparts(outputFN);
+            
+            if ~isempty(outputDir) && exist(outputDir, 'dir')
+                mkdir(outputDir);                
+            end
+            
+            switch lower(outputFormat)
+                
+                case '.csv'
+                    
+                    try
+                        exportToCSV(obj, outputFN);
+                    catch ME
+                        fclose('all');
+                        rethrow(ME)
+                    end
+                    
+                otherwise
+                    error('Please specify an extension for the output file');
+                    
+            end
             
         end
 
@@ -761,6 +1033,75 @@ classdef TrackArray
             
         end
         
+        function exportToCSV(obj, fn)
+            %EXPORTTOCSV  Export track and filemetadata as CSV files
+            %
+            %  EXPORTTOCSV(OBJ, FN) exports the data as a CSV file.
+            
+            fid = fopen(fn, 'w');
+            
+            if fid < 0
+                error('Error opening file %s for writing.', fn);                
+            end
+            
+            %Print file metadata
+            fprintf(fid, 'Filename, %s\n', obj.Filename);
+            fprintf(fid, 'Track data created, %s\n', obj.CreatedOn);
+            fprintf(fid, 'TimestampUnit, %s\n', obj.FileMetadata.TimestampUnit);
+            fprintf(fid, 'PxSize, %s\n', mat2str(obj.FileMetadata.PxSize));
+            fprintf(fid, 'PxSizeUnit, %s\n', obj.FileMetadata.PxSizeUnit);
+            fprintf(fid, 'ImgSize, %s\n', mat2str(obj.FileMetadata.ImgSize));
+            fprintf(fid, '\n');
+            
+            %Print column headers
+            datafields = fieldnames(obj.Tracks.Data);
+            
+            fprintf(fid, 'Track ID, MotherID, DaughterID, Frame');
+            
+            fprintf(fid, ', %s', datafields{:});
+            fprintf(fid, '\n');
+            
+            for iTrack = 1:numel(obj.Tracks)
+                
+                %Print track metadata
+                fprintf(fid, '%.0f, %.0f, %.0f', ...
+                    obj.Tracks(iTrack).ID, ...
+                    obj.Tracks(iTrack).MotherID, ...
+                    obj.Tracks(iTrack).DaughterID);
+                    
+                %Print track data
+                for iF = 1:numel(obj.Tracks(iTrack).Frames)
+                    
+                    if iF > 1
+                        fprintf(fid, ', , ');
+                    end
+                    
+                    %Print frame index
+                    fprintf(fid, ', %.0f', obj.Tracks(iTrack).Frames(iF));
+                    
+                    %Print data fields
+                    for iP = 1:numel(datafields)
+                        
+                        switch class(obj.Tracks(iTrack).Data.(datafields{iP}){iF})
+                            
+                            case 'char'
+                                fprintf(fid, ', %s', obj.Tracks(iTrack).Data.(datafields{iP}){iF});
+                                
+                            case 'double'
+                                fprintf(fid, ', %s', mat2str(obj.Tracks(iTrack).Data.(datafields{iP}){iF}));
+                        
+                        end
+                        
+                    end
+                    fprintf(fid, '\n');
+                end
+                fprintf(fid, '\n');
+                
+            end
+            
+            fclose(fid);
+                        
+        end
     end
     
 end

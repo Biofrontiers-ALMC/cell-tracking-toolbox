@@ -189,21 +189,13 @@ classdef LAPLinker
                 %-- Linking costs (top left) --%
                 cost_to_link = zeros(numel(obj.activeTrackIDs), numel(newData));
                 
-                
                 newLinkData = {newData.(obj.LinkedBy)};
                 
                 for acTr = 1:numel(obj.activeTrackIDs)
-                    lastTrackData = getTrack(obj.tracks,...
-                        obj.activeTrackIDs(acTr), ...
-                        obj.tracks(obj.activeTrackIDs(acTr)).Frames(end));
-                    
-                    lastTrackData = {lastTrackData.(obj.LinkedBy)};
-                    
+                    lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.LinkedBy){end};
                     cost_to_link(acTr, :) = LAPLinker.computecost(lastTrackData, newLinkData, obj.LinkCostMetric);
                 end
                 cost_to_link(cost_to_link < min(obj.LinkScoreRange) | cost_to_link > max(obj.LinkScoreRange)) = Inf;
-                
-                
                 
                 %-- Non-linking cost (top right) --%
                 altCost = 1.05 * max(cost_to_link(~isinf(cost_to_link)));
@@ -254,7 +246,7 @@ classdef LAPLinker
                         else
                             %Compute the age and see if it is time to stop
                             %tracking
-                            age = frame - obj.tracks(obj.activeTrackIDs(iSol)).Frame(end);
+                            age = frame - obj.tracks.Tracks(obj.activeTrackIDs(iSol)).Frames(end);
                             
                             if age > obj.MaxTrackAge
                                 obj.isTrackActive(obj.activeTrackIDs(iSol)) = false;
@@ -266,7 +258,7 @@ classdef LAPLinker
                         if rowsol(iSol) > 0 && rowsol(iSol) <= numel(newData)
                             
                             %Create new track
-                            [obj, newTrackInd] = startTrack(obj, frame, newData(rowsol(iSol)));
+                            [obj, newTrackID] = startTrack(obj, frame, newData(rowsol(iSol)));
                             
                             %Test for division
                             if obj.TrackDivision
@@ -276,22 +268,23 @@ classdef LAPLinker
                                 %Compute the division cost matrix
                                 for acTr = 1:numel(obj.activeTrackIDs)
                                     
-                                    if obj.tracks(obj.activeTrackIDs(acTr)).Frame(1) >= frame || ...
-                                            obj.tracks(obj.activeTrackIDs(acTr)).Frame(end) < frame
+                                    if obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1) >= frame || ...
+                                            obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(end) < frame
                                         
                                         %Check if the track is a valid
                                         %candidate
                                         cost_to_divide(acTr) = Inf;
                                         
-                                    elseif ~isnan(obj.tracks(obj.activeTrackIDs(acTr)).MotherInd) && ...
-                                            (frame - obj.tracks(obj.activeTrackIDs(acTr)).Frame(1)) < obj.MinFramesBetweenDiv
+                                    elseif ~isnan(obj.tracks.Tracks(obj.activeTrackIDs(acTr)).MotherID) && ...
+                                            (frame - obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1)) < obj.MinFramesBetweenDiv
                                         
                                         %Don't let cells divide too quickly
                                         cost_to_divide(acTr) = Inf;
                                         
                                     else
                                         
-                                        lastTrackData = obj.tracks(obj.activeTrackIDs(acTr)).(obj.DivisionParameter){end - 1};
+                                        %Check data with previous frame
+                                        lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.DivisionParameter){end - 1};
                                         cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
                                         
                                     end
@@ -306,17 +299,25 @@ classdef LAPLinker
                                 if ~isinf(min_div_cost)
                                     
                                     %Split the mother track
-                                    [obj, daughterInd] = splitTrack(obj, obj.activeTrackIDs(min_div_ind), frame);
+                                    [obj, daughterID] = splitTrack(obj, obj.activeTrackIDs(min_div_ind), frame);
                                     
                                     %Set mother track as inactive
                                     obj.activeTrackIDs(min_div_ind) = [];
                                     
-                                    %Update mother/daughter indices
-                                    obj.tracks(obj.activeTrackIDs(min_div_ind)).DaughterInd = [newTrackInd, daughterInd];
+                                    %Update mother
+                                    obj.tracks = setDaughterID(obj.tracks, ...
+                                        obj.activeTrackIDs(min_div_ind), ...
+                                        [newTrackID, daughterID]);
                                     
-                                    obj.tracks(newTrackInd).MotherInd = obj.activeTrackIDs(min_div_ind);
-                                    obj.tracks(daughterInd).MotherInd = obj.activeTrackIDs(min_div_ind);
+                                    %Update daughters
+                                    obj.tracks = setMotherID(obj.tracks, ...
+                                        newTrackID, ...
+                                        obj.activeTrackIDs(min_div_ind));
                                     
+                                    obj.tracks = setMotherID(obj.tracks, ...
+                                        daughterID, ...
+                                        obj.activeTrackIDs(min_div_ind));
+                                                                                                                
                                 end
                                 
                             end
@@ -334,13 +335,13 @@ classdef LAPLinker
             
         end
         
-        function splitTrack(obj, trackID, frameToSplit)
+        function [obj, newTrackID] = splitTrack(obj, trackID, frameToSplit)
             
             %Split the tracks
-            [obj.tracks, newTrackID] = splitTrack(obj, trackID, frameToSplit);
+            [obj.tracks, newTrackID] = splitTrack(obj.tracks, trackID, frameToSplit);
             
             %Update the active track list
-            obj.obj.activeTrackIDs(end + 1) = newTrackID;
+            obj.activeTrackIDs(end + 1) = newTrackID;
             
         end
         
@@ -537,7 +538,7 @@ classdef LAPLinker
             
         end
         
-        function [obj, newTrackIndOut] = startTrack(obj, frame, dataIn)
+        function [obj, newTrackID] = startTrack(obj, frame, dataIn)
             %OBJ = NEWTRACK(OBJ, FIRSTFRAME, DATA) creates a new track
             %entry in the data structure. FIRSTFRAME should be the frame
             %number of the first frame for the track. 
@@ -552,12 +553,11 @@ classdef LAPLinker
             %the fields 'Frame', 'MotherInd', and 'DaughterInd'. New tracks
             %cannot have 'Frame' as a data property.
             
-            
             %Create new track
-            [obj.tracks, newTrackIndOut] = addTrack(obj.tracks, frame, dataIn(iT));
+            [obj.tracks, newTrackID] = addTrack(obj.tracks, frame, dataIn);
             
             %Update the active track list
-            obj.activeTrackIDs((end + 1):(end + numel(newTrackIndOut))) = newTrackIndOut;
+            obj.activeTrackIDs((end + 1):(end + numel(newTrackID))) = newTrackID;
             
         end
         
@@ -619,7 +619,16 @@ classdef LAPLinker
                     
                 case 'pxintersect'
                     
-                    cost = cellfun(@(x) numel(union(x, lastTrackData))/numel(intersect(x, lastTrackData)), newData, 'UniformOutput', true);
+                    for ii = 1:numel(newData)
+                        try
+                        cost(ii) = numel(union(newData{ii}, lastTrackData)) / ...
+                            numel(intersect(newData{ii}, lastTrackData));
+                        catch
+                            keyboard
+                        end
+                    end
+                    
+                    %cost = cellfun(@(x) numel(union(x, lastTrackData))/numel(intersect(x, lastTrackData)), newData, 'UniformOutput', true);
                     
             end
                         
