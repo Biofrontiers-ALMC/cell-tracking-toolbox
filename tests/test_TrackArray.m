@@ -149,8 +149,7 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
             
         end
-        
-        
+                
         function updateTrack_modifyExisting(testCase)
             %Update by adding frame to the end
             %This test defines the expected output structure.
@@ -307,7 +306,6 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
         end
         
-        
         function splitTrack(testCase)
             
             %Update by adding frame to the end
@@ -354,6 +352,51 @@ classdef test_TrackArray < matlab.unittest.TestCase
             %Test original track
             testCase.assertEqual(array.Tracks, expectedData);
            
+            
+        end
+        
+        function saveandload(testCase)
+            
+            array = TrackArray;
+            
+            testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], 'Classification', 'Blue');
+            testdata(2).Length = 5;
+            testdata(2).PxIdxList = [30 10 5];
+            testdata(2).Classification = 'Yellow';
+            
+            [array, newTrackID] = addTrack(array, 1, testdata);
+            
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', 1, ...
+                'Data', struct(...
+                'Length', {{10}},...
+                'PxIdxList', {{[10, 20 30]}},...
+                'Classification', {{'Blue'}}));
+            
+            expectedData2 = struct(...
+                'ID', 2, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', 1, ...
+                'Data', struct(...
+                'Length', {{5}},...
+                'PxIdxList', {{[30, 10 5]}},...
+                'Classification', {{'Yellow'}}));
+            
+            save('tmptest.mat')
+            
+            clearvars array
+            
+            load('tmptest.mat')
+            
+            testCase.assertEqual(array.Tracks(1), expectedData);
+            testCase.assertEqual(array.Tracks(2), expectedData2);
+            testCase.assertEqual(newTrackID, [1, 2]);
+            
+            delete('tmptest.mat');
             
         end
         

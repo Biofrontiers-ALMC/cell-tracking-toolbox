@@ -249,7 +249,9 @@ classdef LAPLinker
                             age = frame - obj.tracks.Tracks(obj.activeTrackIDs(iSol)).Frames(end);
                             
                             if age > obj.MaxTrackAge
-                                obj.isTrackActive(obj.activeTrackIDs(iSol)) = false;
+                                
+                                obj.activeTrackIDs(iSol) = [];
+                                
                             end
                         end
                         
@@ -369,6 +371,30 @@ classdef LAPLinker
             end
             
             for ii = 1:2:numel(varargin)
+                
+                switch lower(varargin{ii})
+                    
+                    case 'filename'
+                        obj.tracks = setFilename(obj.tracks, varargin{ii + 1});
+                    
+                    case 'pxsize'
+                        obj.tracks = setPxSize(obj.tracks, varargin{ii + 1});
+                    
+                    case 'pxsizeunit'
+                        obj.tracks = setPxSizeUnits(obj.tracks, varargin{ii + 1});
+                    
+                    case 'imgsize'
+                        obj.tracks = setImgSize(obj.tracks, varargin{ii + 1});
+                        
+                    case 'timestamps'
+                        obj.tracks = setTimestamp(obj.tracks, varargin{ii + 1});
+                        
+                    case 'timestampunits'
+                        obj.tracks = setTimestampUnits(obj.tracks, varargin{ii + 1});
+                        
+                end
+                
+                
                 obj.metadata.(varargin{ii}) = varargin{ii + 1};
             end
             

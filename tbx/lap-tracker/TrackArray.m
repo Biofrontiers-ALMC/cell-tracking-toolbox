@@ -28,12 +28,12 @@ classdef TrackArray
     %
     %  Add traversal algorithms, tree plotting
             
-    properties (Access = private)
+    properties (Access = protected)
         
         LastID = 0;  %Last assigned track ID
     end
     
-    properties (SetAccess = private)
+    properties (SetAccess = protected)
         
         Tracks    %Struct containing data
         
@@ -45,14 +45,10 @@ classdef TrackArray
             'PxSizeUnit', '', ...
             'ImgSize', [NaN, NaN]);
         
-    end
-    
-    properties (Constant)
-        
         CreatedOn = datestr(now); %Timestamp when object was created
         
     end
-    
+        
     properties (Dependent)
         
         NumTracks
@@ -81,7 +77,13 @@ classdef TrackArray
         
         %--- Get/set FileMetadata 
         
-        function obj = setTimestampInfo(obj, tsIn, varargin)
+        function obj = setTimestamp(obj, tsIn)
+            
+            obj.FileMetadata.Timestamps = tsIn;
+            
+        end
+        
+        function obj = setTimestampUnits(obj, tsUnits)
             %SETTIMESTAMPINFO  Set timestamp information
             %
             %  OBJ = SETTIMESTAMPINFO(OBJ, T) sets the timestamp
@@ -94,20 +96,9 @@ classdef TrackArray
             %  specified. By default, a unit of seconds is assumed. This
             %  parameter could affect calculations and plots.
 
-            if isempty(varargin)
-                obj.FileMetadata.TimestampUnit = 's';
-                
-            elseif ischar(varargin{1})
-                %!!TODO!! Add enum and checks
-                obj.FileMetadata.TimestampUnit = lower(varargin{1});
-                
-            else
-                error('TrackArray:setTimestampInfo:UnitNotString', ...
-                    'Expected time unit information to be a string.');
-            end
-                
-            obj.FileMetadata.Timestamps = tsIn;
-                         
+            %!!TODO!! Add enum and checks
+            obj.FileMetadata.TimestampUnit = lower(tsUnits);
+            
         end
         
         function [ts, tsUnits] = getTimestampInfo(obj)
@@ -121,20 +112,15 @@ classdef TrackArray
             
         end
                 
-        function obj = setPxSizeInfo(obj, pxLength, varargin)
-            %SETPXSIZEINFO  Set pixel size information
-            %
-            %  A = A.SETPXSIZEINFO(L) will set the PxSize property of the
-            %  FileMetadata to L. 
-            %
-            %  A = A.SETPXSIZEINFO(L,U) also sets a string U representing
-            %  the unit of the property.
+        function obj = setPxSize(obj, pxLength)
             
-            obj.FileMetadata.PxSize = pxLength;
+            obj.FileMetadata.PxSize = pxLength;            
             
-            if ~isempty(varargin)
-                obj.FileMetadata.PxSizeUnit = varargin{1};                
-            end
+        end
+        
+        function obj = setPxSizeUnits(obj, pxUnit)
+            
+            obj.FileMetadata.PxSizeUnit = pxUnit;            
             
         end
         
@@ -295,8 +281,6 @@ classdef TrackArray
             
         end
 
-        
-        
         function obj = updateTrack(obj, trackID, frameIndex, trackData, varargin)
             %UPDATETRACK  Update the specified track
             %
@@ -621,7 +605,6 @@ classdef TrackArray
         end
         
         
-        
         %--- Traversal functions ---%
         function IDout = traverse(obj, rootTrackID, varargin)
             %TRAVERSE  Return track IDs in specified order
@@ -942,9 +925,6 @@ classdef TrackArray
         end
         
         
-        
-        
-        
         %--- Export data (TODO) ---%
         function export(obj, outputFN, varargin)
             %EXPORT  Export track data to various formats
@@ -991,9 +971,64 @@ classdef TrackArray
             
         end
 
+        function savestruct(obj, filename)
+            %SAVESTRUCT  Save track array as struct
+            %
+            %  SAVESTRUCT(OBJ, FILENAME) will save the object data as a
+            %  struct. This enables compatibility with subclasses since
+            %  MATLAB does not allow direct casting of subclasses from the
+            %  superclass.
+            
+            
+            %Reformat data into a struct for saving
+            C = metaclass(obj);
+            P = C.Properties;
+            for k = 1:length(P)
+                if ~P{k}.Dependent
+                    TrackArrayData.(P{k}.Name) = obj.(P{k}.Name);
+                end
+            end
+            
+            save(filename, 'TrackArrayData')
+        end
+        
+        function sOut = saveobj(obj)
+            
+            sOut.LastID = obj.LastID;
+            sOut.Tracks = obj.Tracks;
+            sOut.Filename = obj.Filename;
+            sOut.FileMetadata = obj.FileMetadata;
+            sOut.CreatedOn = obj.CreatedOn;
+            
+        end
+        
     end
     
-    methods (Access = private)
+    methods (Static)
+        
+        function obj = loadobj(s)
+            
+            if isstruct(s)
+                
+                newObj = TrackArray;
+                
+                newObj.LastID = s.LastID;
+                newObj.Tracks = s.Tracks;
+                newObj.Filename = s.Filename;
+                newObj.FileMetadata = s.FileMetadata;
+                newObj.CreatedOn = s.CreatedOn;
+                
+                obj = newObj;
+                
+            else
+                obj = s;
+            end
+            
+        end
+        
+    end
+    
+    methods (Access = protected)
 
         function varargout = findtrack(obj, trackID, varargin)
             %FINDTRACK  Returns track index
