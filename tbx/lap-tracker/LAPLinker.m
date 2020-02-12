@@ -301,9 +301,6 @@ classdef LAPLinker
                                     %Split the mother track
                                     [obj, daughterID] = splitTrack(obj, obj.activeTrackIDs(min_div_ind), frame);
                                     
-                                    %Set mother track as inactive
-                                    obj.activeTrackIDs(min_div_ind) = [];
-                                    
                                     %Update mother
                                     obj.tracks = setDaughterID(obj.tracks, ...
                                         obj.activeTrackIDs(min_div_ind), ...
@@ -318,6 +315,9 @@ classdef LAPLinker
                                         daughterID, ...
                                         obj.activeTrackIDs(min_div_ind));
                                                                                                                 
+                                    %Set mother track as inactive
+                                    obj.activeTrackIDs(min_div_ind) = [];
+                                    
                                 end
                                 
                             end

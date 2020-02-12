@@ -784,14 +784,12 @@ classdef TrackArray
                     nodes(newNode).Height = nodes(ptrNode).Height + 1;
                     
                     if numel(obj.Tracks(trackIndex).DaughterID) == 2
-                        
                         newNode = numel(nodes) + 1;
                         nodes(newNode).ID = obj.Tracks(trackIndex).DaughterID(2);
                         nodes(newNode).ParentIndex = ptrNode;
                         nodes(newNode).isLeft = false;
                         nodes(newNode).isRight = true;
                         nodes(newNode).Height = nodes(ptrNode).Height + 1;
-                        
                     end
                     
                 end
@@ -811,7 +809,7 @@ classdef TrackArray
                     
 %                     %Calculate the X position of the current node 
 %                     nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X;
-%                     nodes(ptrNode).Y = obj.Tracks(nodes(ptrNode).ID).Frames(end);
+                    nodes(ptrNode).Y = obj.Tracks(nodes(ptrNode).ID).Frames(end);
                     
                 end
                 
@@ -840,7 +838,7 @@ classdef TrackArray
                     nodes(ptrNode).X];
                 nodes(ptrNode).lineY = [nodes(nodes(ptrNode).ParentIndex).Y...
                     nodes(nodes(ptrNode).ParentIndex).Y...
-                    nodes(ptrNode).Y];
+                    obj.Tracks(nodes(ptrNode).ID).Frames(end)];
             
             end
             
@@ -930,8 +928,8 @@ classdef TrackArray
                     
                     %Offset the labels to the right and slightly above the
                     %node center
-                    text(- 0.1, 0, nodes(1).ID); %Root
-                    text(X(2:end) + 0.1, Y(2:end), {nodes(2:end).ID})
+                    text(- 0.1, 0, num2str(nodes(1).ID)); %Root
+                    text(X(2:end) + 0.1, Y(2:end), strsplit(num2str([nodes(2:end).ID])))
                     
                     set(gca, 'yTick', [])
                     
