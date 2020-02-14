@@ -386,11 +386,11 @@ classdef test_TrackArray < matlab.unittest.TestCase
                 'PxIdxList', {{[30, 10 5]}},...
                 'Classification', {{'Yellow'}}));
             
-            save('tmptest.mat')
+            save('tmptest.mat', 'array');
             
             clearvars array
             
-            load('tmptest.mat')
+            load('tmptest.mat', 'array');
             
             testCase.assertEqual(array.Tracks(1), expectedData);
             testCase.assertEqual(array.Tracks(2), expectedData2);
@@ -417,6 +417,87 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
             
         end
+        
+        function traversal_levelorder(testCase)
+            % Example tree:
+            %
+            %               1
+            %             /   \
+            %            2     3
+            %           /  \
+            %          4    5
+            %
+            
+            array = TrackArray;
+            
+            data.Length = 1;
+            
+            %Create the tree
+            array = addTrack(array, 1, data);
+            array = setDaughterID(array, 1, [2, 3]);
+            
+            array = addTrack(array, 2, data);
+            array = addTrack(array, 3, data);
+            
+            array = setMotherID(array, 2, 1);
+            array = setMotherID(array, 3, 1);
+            array = setDaughterID(array, 2, [4, 5]);
+            
+            array = addTrack(array, 4, data);
+            array = addTrack(array, 5, data);
+            array = setMotherID(array, 4, 2);
+            array = setMotherID(array, 5, 2);
+            
+            IDout = traverse(array, 1, 'level');
+            
+            testCase.assertEqual(IDout, [1, 2, 3, 4, 5]);
+            
+            
+        end
+        
+        function traversal_preorder(testCase)
+            % Example tree:
+            %
+            %               1
+            %             /   \
+            %            2     3
+            %           /  \
+            %          4    5
+            %
+            
+            array = TrackArray;
+            
+            data.Length = 1;
+            
+            %Create the tree
+            array = addTrack(array, 1, data);
+            array = setDaughterID(array, 1, [2, 3]);
+            
+            array = addTrack(array, 2, data);
+            array = addTrack(array, 3, data);
+            
+            array = setMotherID(array, 2, 1);
+            array = setMotherID(array, 3, 1);
+            array = setDaughterID(array, 2, [4, 5]);
+            
+            array = addTrack(array, 4, data);
+            array = addTrack(array, 5, data);
+            array = setMotherID(array, 4, 2);
+            array = setMotherID(array, 5, 2);
+            
+            %Add non-connected track to check that output ID lengths are
+            %correct
+            array = addTrack(array, 6, data);
+            
+            IDout = traverse(array, 1, 'preorder');
+            
+            testCase.assertEqual(IDout, [1, 2, 4, 5, 3]);
+            
+            
+        end
+        
+        
+        
         
     end
 end

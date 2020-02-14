@@ -189,6 +189,7 @@ classdef TrackArray
             
         end
         
+        %!!TODO: Setting motherID should set daughterIDs and vice versa
         function obj = setMotherID(obj, trackID, motherID)
             
             %Check that track exists
@@ -544,22 +545,26 @@ classdef TrackArray
             if ~isempty(varargin)
                 direction = varargin{1};
             end
-          
-            rootIndex = findtrack(obj, rootTrackID, true);
             
             IDout = nan(1, numel(obj.Tracks));
-            IDout(1) = rootIndex;
-            currPos = 1;
+            
             
             switch lower(direction)
                 
-                case 'inorder'
+                case {'breadthfirst', 'level'}
                     
-                    while ~isnan(IDout(currPos))
+                    IDout(1) = rootTrackID;
+                    currPos = 1;
+                    
+                    while currPos <= numel(IDout) && ~isnan(IDout(currPos))
                         
-                        if ~isnan(obj.Tracks(IDout(currPos).DaughterID))
+                        currTrackIndex = findtrack(obj, IDout(currPos), true);
+                        
+                        if ~isnan(obj.Tracks(currTrackIndex).DaughterID)
                             
-                            
+                            %Add to end of stack
+                            ptrStack = find(isnan(IDout), 1, 'first');
+                            IDout(ptrStack:(ptrStack + 1)) = obj.Tracks(currTrackIndex).DaughterID;
                             
                         end
                         
@@ -567,24 +572,36 @@ classdef TrackArray
                         
                     end
                     
+                    %Clean up IDout
+                    ptrStack = find(isnan(IDout), 1, 'first');
+                    IDout(ptrStack:end) = [];
+                
+                case 'preorder'
+
+                    stack(1) = rootTrackID;
                     
+                    ptrOut = 1;
                     
-            %Pre-order traversal
-            
-            
-            IDout = rootIndex;
-            ptrNode = 0;
-            
-            while ptrNode <= numel(IDout)
-                
-                ptrNode = ptrNode + 1;
-                
-                trackIndex = findtrack(obj, IDout(ptrNode), true);
-                
-                IDout = [obj.Tracks(trackIndex).DaughterID, IDout]; %#ok<AGROW>
-                
+                    while ~isempty(stack)
+                        
+                        IDout(ptrOut) = stack(end);
+                        ptrOut = ptrOut + 1;
+                        
+                        currTrackIndex = findtrack(obj, stack(end), true);
+                        stack(end) = [];
+                        
+                        if ~isnan(obj.Tracks(currTrackIndex).DaughterID)
+                            
+                            %Add to end of stack - flip to put "left"
+                            %daughter first
+                            stack((end + 1):(end + 2)) = fliplr(obj.Tracks(currTrackIndex).DaughterID);
+                            
+                        end
+                        
+                    end
+                    IDout(ptrOut:end) = [];
             end
-            end
+                    
         end
         
         function treeplot(obj, rootTrackID, varargin)
@@ -951,7 +968,6 @@ classdef TrackArray
             
             sOut.LastID = obj.LastID;
             sOut.Tracks = obj.Tracks;
-            sOut.Filename = obj.Filename;
             sOut.FileMetadata = obj.FileMetadata;
             sOut.CreatedOn = obj.CreatedOn;
             
@@ -969,7 +985,6 @@ classdef TrackArray
                 
                 newObj.LastID = s.LastID;
                 newObj.Tracks = s.Tracks;
-                newObj.Filename = s.Filename;
                 newObj.FileMetadata = s.FileMetadata;
                 newObj.CreatedOn = s.CreatedOn;
                 
