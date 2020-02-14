@@ -400,5 +400,23 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
         end
         
+        function setFileMetadata(testCase)
+            
+            array = TrackArray;
+            
+            array = setFileMetadata(array, ...
+                'Filename', 'test.nd2', ...
+                'PxSize', [10, 10], ...
+                'PxSizeUnits', 'seconds');
+            
+            expectedData.Filename = 'test.nd2';
+            expectedData.PxSize = [10 10];
+            expectedData.PxSizeUnits = 'seconds';
+            
+            testCase.assertEqual(array.FileMetadata, expectedData);
+            
+            
+        end
+        
     end
 end

@@ -1,49 +1,57 @@
 classdef TrackArray
     %TRACKARRAY  Data class representing an array of tracks
     %
-    %  TRACKDATAARRAY Properties:
-    %     Filename - Filename of the movie this data was created from
-    %     FileMetadata - Timestamps, pixel size and image size
-    %     CreatedOn - Time and date the object was created on
-    %     NumTracks - Number of tracks in array
-    %     NumFrames - Length of tracked data in frames
-    %     MeanDeltaT - Mean time between frames
-    %     TrackedDataFields - Cell list of data fieldnames
+    %  TRACKARRAY is a data class representing an array of tracks
+    %  containing timeseries data from the LAPLinker class . Each track is
+    %  modelled as a binary linked list, where each "mother" track is
+    %  connected to two "daughter" tracks. The data class is built to be
+    %  extensible to enable custom data structures.
     %
-    %  TRACKDATAARRAY Methods:
-    %     addTrack - Add a track to the array
-    %     deleteTrack - Delete track from array
-    %     getTrack - Get a specified track
-    %     updateTrack - Update specified frames of a track
-    %     deleteFrame - Delete frame(s) from a track
-    %     renameField - Rename data fields of all tracks in the array
+    %  TRACKARRAY holds track information in the property Tracks. Each
+    %  track has the following basic structure:
+    %    ID         - A unique number that is given to each track in the
+    %                 array
+    %    MotherID   - ID of the mother track (if a division occured)
+    %    DaughterID - ID of the daughter tracks (if a division occured)
+    %    Frames     - A vector contraining a list of frames containing data
+    %    Data       - A struct that contains the time-series data
     %
+    %  TRACKARRAY Methods:
+    %     numel           - Number of tracks in array
+    %     setFileMetadata - Set file metadata information (e.g. pixel
+    %                         size, timestamps)
+    %     addTrack        - Add a track
+    %     setMotherID     - Set mother ID of a track
+    %     setDaughterID   - Set daughter ID of a track
+    %     deleteTrack     - Delete track from array
+    %     getTrack        - Get a specified track
+    %     updateTrack     - Update specified frames of a track
+    %     deleteFrame     - Delete frame(s) from a track
+    %     splitTrack      - Split a track into two at specified frame
+    %     traverse        - Traverses the track structure, returning track
+    %                       IDs in order specified
+    %     treeplot        - Generates a plot of the track structure
+    %                       starting from a specific root node
+    %     export          - Export data in a specific format (e.g. CSV)
+    %     savestruct      - Save data as a struct
     %
-    %  Each track has the following basic structure:
-    %    ID
-    %    MotherID
-    %    DaughterID
-    %    Frames
-    %    Data
-    %
-    %  Add traversal algorithms, tree plotting
-            
+    %  TRACKARRAY Properties:
+    %     FileMetadata - Structure containing user-defined metadata
+    %     CreatedOn    - Time and date the object was created on
+    %     NumTracks    - Number of tracks in array
+    %     Datafields   - Cell list of fieldnames of timeseries data
+    %                    (excludes the common data fields listed above)
+
     properties (Access = protected)
         
         LastID = 0;  %Last assigned track ID
+        
     end
     
     properties (SetAccess = protected)
         
-        Tracks    %Struct containing data
-        
-        Filename = '';
-        FileMetadata = struct(...
-            'Timestamps', [], ...
-            'TimestampUnit', '',...
-            'PxSize', [], ...
-            'PxSizeUnit', '', ...
-            'ImgSize', [NaN, NaN]);
+        Tracks    %Struct containing data        
+        FileMetadata;  %Struct to contain file metadata
         
         CreatedOn = datestr(now); %Timestamp when object was created
         
@@ -52,8 +60,7 @@ classdef TrackArray
     properties (Dependent)
         
         NumTracks
-        MeanDeltaT
-        TrackedDataFields
+        Datafields
         
     end
     
@@ -76,115 +83,32 @@ classdef TrackArray
         end
         
         %--- Get/set FileMetadata 
-        
-        function obj = setTimestamp(obj, tsIn)
-            
-            obj.FileMetadata.Timestamps = tsIn;
-            
-        end
-        
-        function obj = setTimestampUnits(obj, tsUnits)
-            %SETTIMESTAMPINFO  Set timestamp information
+        function obj = setFileMetadata(obj, varargin)
+            %SETFILEMETADATA  Set file metadata fields
             %
-            %  OBJ = SETTIMESTAMPINFO(OBJ, T) sets the timestamp
-            %  information in the FileMetadata property. T can be a vector,
-            %  representing the timestamp for each frame. Alternatively, T
-            %  can be a single number, representing the time between
-            %  frames.
+            %  OBJ = SETFILEMETADATA(OBJ, PARAM, VALUE, ...) sets the
+            %  FileMetadata property. The inputs must be parameter
+            %  name/value pairs.
             %
-            %  OBJ = SETTIMESTAMPINFO(OBJ, T, UNIT) allows the units to be
-            %  specified. By default, a unit of seconds is assumed. This
-            %  parameter could affect calculations and plots.
-
-            %!!TODO!! Add enum and checks
-            obj.FileMetadata.TimestampUnit = lower(tsUnits);
+            %  Example:
+            %  A = TrackArray;
+            %  A = setFileMetadata(A, 'Filename', 'test.nd2');
+            %  A.FileMetadata.Filename
             
-        end
-        
-        function [ts, tsUnits] = getTimestampInfo(obj)
-            %GETTIMESTAMPINFO  Get timestamp information
-            %
-            %  [T, U] = A.GETTIMESTAMPINFO will return timestamps as vector
-            %  T and units as string U.
-            
-            ts = obj.FileMetadata.Timestamps;
-            tsUnits = obj.FileMetadata.TimestampUnit;
-            
-        end
-                
-        function obj = setPxSize(obj, pxLength)
-            
-            obj.FileMetadata.PxSize = pxLength;            
-            
-        end
-        
-        function obj = setPxSizeUnits(obj, pxUnit)
-            
-            obj.FileMetadata.PxSizeUnit = pxUnit;            
-            
-        end
-        
-        function [pxLength, pxUnits] = getPxSizeInfo(obj)
-            %GETPXSIZEINFO  Get pixel size information
-            %
-            %  [L, U] = A.GETPXSIZEINFO returns the length of each image
-            %  pixel L in physical units U.
-            
-            pxLength = obj.FileMetadata.PxSize;
-            pxUnits = obj.FileMetadata.PxSizeUnit;
-            
-        end
-        
-        function obj = setImgSize(obj, imgSize)
-            %SETIMGSIZE  Sets the image size in the file metadata
-            %
-            %  A = A.SETIMGSIZE([H W]) sets the image size to the height H
-            %  and width W.
-            
-            obj.FileMetadata.ImgSize = imgSize;
-            
-        end
-        
-        function obj = setFilename(obj, fn)
-            %SETFILENAME  Set filename property
-            %
-            %  The filename is linked to the dataset that this track data
-            %  array was created from.
-            %
-            %  A = A.SETFILENAME(F) sets the filename to F.
-            
-            if ~isempty(obj.Filename)
-                %Warn if not empty
-                
-                warning('TrackDataArray:setFilename:FilenameAlreadyExists',...
-                    'The filename property is already set. Are you sure you want to change it?');
-                s = input('Change filename (Y = change, anything else will cancel)? ','s');
-                
-                if ~strcmpi(s,'y')
-                    return;
-                end
+            %Check that there are enough input variables
+            if rem(numel(varargin), 2) ~= 0
+                error('TrackArray:setFileMetadata:InputNotPairs', ...
+                    'Expected input to be parameter/value pairs.');                
             end
             
-            obj.Filename = fn;
-            
-        end
-        
-        
-        % --- To change ---%
-        function meanDeltaT = get.MeanDeltaT(obj)
-            %Returns the mean time between frames
-            
-            if ~isempty(obj.FileMetadata.Timestamps)
-                meanDeltaT = mean(diff(obj.FileMetadata.Timestamps));
-            else
-                meanDeltaT = [];
+            for iP = 1:2:numel(varargin)
+                obj.FileMetadata.(varargin{iP}) = varargin{iP + 1};
             end
-            
         end
         
-        function dataFieldnames = get.TrackedDataFields(obj)
+        function dataFieldnames = get.Datafields(obj)
             
-            dataFieldnames = obj.getTrack(1).TrackDataProps;
+            dataFieldnames = fieldnames(obj.Tracks);
             
         end
         
@@ -616,20 +540,51 @@ classdef TrackArray
             %  the order starts with the root, then down the left tree,
             %  then the right tree.
             
+            direction = 'inorder';
+            if ~isempty(varargin)
+                direction = varargin{1};
+            end
+          
+            rootIndex = findtrack(obj, rootTrackID, true);
+            
+            IDout = nan(1, numel(obj.Tracks));
+            IDout(1) = rootIndex;
+            currPos = 1;
+            
+            switch lower(direction)
+                
+                case 'inorder'
+                    
+                    while ~isnan(IDout(currPos))
+                        
+                        if ~isnan(obj.Tracks(IDout(currPos).DaughterID))
+                            
+                            
+                            
+                        end
+                        
+                        currPos = currPos + 1;
+                        
+                    end
+                    
+                    
+                    
             %Pre-order traversal
-            queue = rootRID;
-            IDout = [];
-            while ~isempty(queue)
+            
+            
+            IDout = rootIndex;
+            ptrNode = 0;
+            
+            while ptrNode <= numel(IDout)
                 
-                IDout =[IDout, queue(1)]; %#ok<AGROW>
-                cid = queue(1);
-                queue(1) = [];
+                ptrNode = ptrNode + 1;
                 
-                queue = [obj.tblData(cid).DaughterIDs, queue]; %#ok<AGROW>
-                queue(isnan(queue)) = [];
+                trackIndex = findtrack(obj, IDout(ptrNode), true);
+                
+                IDout = [obj.Tracks(trackIndex).DaughterID, IDout]; %#ok<AGROW>
                 
             end
-            
+            end
         end
         
         function treeplot(obj, rootTrackID, varargin)
@@ -1138,11 +1093,3 @@ classdef TrackArray
     end
     
 end
-
-
-
-
-
-
-
-

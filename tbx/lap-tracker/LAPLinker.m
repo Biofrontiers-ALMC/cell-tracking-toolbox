@@ -1,9 +1,10 @@
 classdef LAPLinker
-    %LAPLinker  Links objects in movies using linear assignment
+    %LAPLINKER  Links objects in movies using linear assignment
     %
     %  OBJ = LAPLinker constructs a LAPLINKER object to link objects in
     %  movies using linear assignment. The objective is to create "tracks",
-    %  which contain data corresponding to a single object over time.
+    %  which contain timeseries data corresponding to a single object over
+    %  time.
     %
     %  Objects detected in the current frame (called "detections") are
     %  either linked to objects from previous frames to form tracks, or new
@@ -33,36 +34,30 @@ classdef LAPLinker
     %
     %  LAPLinker Properties:
     %  ---------------------
-    %   Solver - Name of assignment solver
-    %   LinkedBy - Property to compute linking cost
-    %   LinkCostMetric - Function to compute linking cost
-    %   LinkScoreRange - Min and max values for linking objects
-    %   MaxTrackAge - Maximum number of frames a track can go without being
-    %                 updated
-    %   TrackDivision - If true, division events will be tracked.
-    %                   Otherwise, new tracks will be created for new
-    %                   objects
-    %   DivisionParameter - Property to determine division
+    %   Solver              - Name of assignment solver
+    %   LinkedBy            - Property to compute linking cost
+    %   LinkCostMetric      - Function to compute linking cost
+    %   LinkScoreRange      - Min and max values for linking objects
+    %   MaxTrackAge         - Maximum number of frames a track can go 
+    %                         without being updated
+    %   TrackDivision       - If true, division events will be tracked.
+    %                         Otherwise, new tracks will be created for
+    %                         new objects
+    %   DivisionParameter   - Property to determine division
     %   DivisionScoreMetric - Function to compute division cost
-    %   DivisionScoreRange - Min and max values for a division to occur
+    %   DivisionScoreRange  - Min and max values for a division to occur
     %   MinFramesBetweenDiv - Minimum number of frames between divisions
-    %
-    %   metadata - Struct to hold file metadata (set using
-    %              'updateMetadata')
-    %   tracks - Struct containing track information
-    %   isTrackActive - Logical vector with the same length as number of
-    %                   tracks. If element is true, track will be used for
-    %                   tracking. If false, tracking is stopped (e.g.
-    %                   object has left field of view or divided)
+    %   activeTrackIDs      - A vector containing IDs of active tracks
     %   NumTracks - Number of tracks in the array
     %
     %  LAPLinker Methods:
     %  ------------------
-    %   assignToTrack - Main method to call. Assigns new data to tracks.
-    %   updateMetadata - Sets file metadata options.
-    %   newTrack - Create a new track
-    %   updateTrack - Modify or add values to an existing track
-    %   splitTrack - Splits a track into two
+    %   assignToTrack  - Main method to call. Assigns new data to tracks
+    %   updateMetadata - Sets file metadata options
+    %   newTrack       - Create a new track
+    %   updateTrack    - Modify or add values to an existing track
+    %   splitTrack     - Splits a track into two (used to handle 
+    %                    division events)
     %
     %  Example:
     %  % This example shows only the outline of a typical program. To see
@@ -199,6 +194,12 @@ classdef LAPLinker
                 
                 %-- Non-linking cost (top right) --%
                 altCost = 1.05 * max(cost_to_link(~isinf(cost_to_link)));
+                
+                if isempty(altCost)
+                    %Likely reason, there were no valid links at all
+                    %(registration/segmentation issue?)
+                    altCost = 2e8;                    
+                end
                 
                 cost_no_links = inf(numel(obj.activeTrackIDs));
                 cost_no_links(1:(size(cost_no_links, 1) + 1):end) = altCost;
@@ -370,33 +371,7 @@ classdef LAPLinker
                     'Expected input should be matched parameter/value pairs.');                
             end
             
-            for ii = 1:2:numel(varargin)
-                
-                switch lower(varargin{ii})
-                    
-                    case 'filename'
-                        obj.tracks = setFilename(obj.tracks, varargin{ii + 1});
-                    
-                    case 'pxsize'
-                        obj.tracks = setPxSize(obj.tracks, varargin{ii + 1});
-                    
-                    case 'pxsizeunit'
-                        obj.tracks = setPxSizeUnits(obj.tracks, varargin{ii + 1});
-                    
-                    case 'imgsize'
-                        obj.tracks = setImgSize(obj.tracks, varargin{ii + 1});
-                        
-                    case 'timestamps'
-                        obj.tracks = setTimestamp(obj.tracks, varargin{ii + 1});
-                        
-                    case 'timestampunits'
-                        obj.tracks = setTimestampUnits(obj.tracks, varargin{ii + 1});
-                        
-                end
-                
-                
-                obj.metadata.(varargin{ii}) = varargin{ii + 1};
-            end
+            obj.tracks = setFileMetadata(obj.tracks, varargin{:});
             
         end
         
