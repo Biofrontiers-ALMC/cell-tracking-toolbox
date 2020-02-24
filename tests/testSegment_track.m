@@ -74,12 +74,12 @@ for iT = 1:(bfr.sizeT - 2)
     [A,map] = rgb2ind([IBF, Iout],256);
 
     
-%     if iT == 1
-%         imwrite(A,map,'movie.gif', 'Loopcount', inf, 'DelayTime', 0.14);
-%         
-%     else
-%         imwrite(A,map, 'movie.gif', 'Writemode', 'append', 'DelayTime', 0.14);
-%     end   
+    if iT == 1
+        imwrite(A,map,'movie.gif', 'Loopcount', inf, 'DelayTime', 0.14);
+        
+    else
+        imwrite(A,map, 'movie.gif', 'Writemode', 'append', 'DelayTime', 0.14);
+    end   
     
 end
 

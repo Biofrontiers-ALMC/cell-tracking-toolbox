@@ -236,6 +236,8 @@ classdef LAPLinker
                        
                 end
                                 
+                chkStop = [];
+                
                 %Handle assignments
                 for iSol = 1:numel(rowsol)
                     
@@ -247,13 +249,14 @@ classdef LAPLinker
                         else
                             %Compute the age and see if it is time to stop
                             %tracking
-                            age = frame - obj.tracks.Tracks(obj.activeTrackIDs(iSol)).Frames(end);
-                            
-                            if age > obj.MaxTrackAge
-                                
-                                obj.activeTrackIDs(iSol) = [];
-                                
-                            end
+                            chkStop(end + 1) = obj.activeTrackIDs(iSol);
+%                             age = frame - obj.tracks.Tracks(obj.activeTrackIDs(iSol)).Frames(end);
+%                             
+%                             if age > obj.MaxTrackAge
+%                                 
+%                                 obj.activeTrackIDs(iSol) = [];
+%                                 
+%                             end
                         end
                         
                     else
@@ -333,6 +336,18 @@ classdef LAPLinker
                         
                     end
                     
+                end
+                
+                for iChk = 1:numel(chkStop)
+                    
+                    age = frame - obj.tracks.Tracks(chkStop(iChk)).Frames(end);
+                    
+                    if age > obj.MaxTrackAge
+                        
+                        obj.activeTrackIDs(obj.activeTrackIDs == chkStop(iChk)) = [];
+                        %obj.activeTrackIDs(iSol) = [];
+                        
+                    end
                 end
             end
             
@@ -583,7 +598,11 @@ classdef LAPLinker
             
         end
         
-        
+        function track = getTrack(obj, trackID)
+            
+            track = getTrack(obj.tracks, trackID);
+            
+        end
 
     end
     
@@ -620,16 +639,20 @@ classdef LAPLinker
                     
                 case 'pxintersect'
                     
+                    cost = 1:numel(newData);
                     for ii = 1:numel(newData)
-                        try
                         cost(ii) = numel(union(newData{ii}, lastTrackData)) / ...
                             numel(intersect(newData{ii}, lastTrackData));
-                        catch
-                            keyboard
-                        end
                     end
                     
                     %cost = cellfun(@(x) numel(union(x, lastTrackData))/numel(intersect(x, lastTrackData)), newData, 'UniformOutput', true);
+                    
+                otherwise
+                    
+                    %Call custom function (must be on path)
+                    %Function pattern = func(lastTrackData, newData)
+                    
+                    cost = eval(sprintf('%s(lastTrackData, newData)', method));
                     
             end
                         
