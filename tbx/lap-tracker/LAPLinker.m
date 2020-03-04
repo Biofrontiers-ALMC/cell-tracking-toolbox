@@ -351,6 +351,19 @@ classdef LAPLinker
                 end
             end
             
+            
+%             %!!DEBUG
+%             for iT = 1:numel(LAPLinker.tracks)
+%                 
+%                 
+%             
+%             if 
+%                 
+%                 
+%             end
+%             end
+%             
+            
         end
         
         function [obj, newTrackID] = splitTrack(obj, trackID, frameToSplit)

@@ -465,9 +465,16 @@ classdef TrackArray
             trackIndex = findtrack(obj, trackID, true);
             
             %Copy track metadata
-            trackOut.ID = obj.Tracks(trackIndex).ID;
-            trackOut.MotherID = obj.Tracks(trackIndex).MotherID;
-            trackOut.DaughterID = obj.Tracks(trackIndex).DaughterID;
+            metadataFields = fieldnames(obj.Tracks);
+            metadataFields(strcmp(metadataFields, 'Data')) = [];
+             
+            for iP = 1:numel(metadataFields)
+                trackOut.(metadataFields{iP}) = obj.Tracks(trackIndex).(metadataFields{iP});                
+            end
+            
+            %trackOut.ID = obj.Tracks(trackIndex).ID;
+            %trackOut.MotherID = obj.Tracks(trackIndex).MotherID;
+            %trackOut.DaughterID = obj.Tracks(trackIndex).DaughterID;
             
             
             %Determine how many frames to export                        
@@ -491,9 +498,18 @@ classdef TrackArray
                             %Replace empty data with NaNs of the correct length
                             tmp = obj.Tracks(trackIndex).Data.(datafields{iP});
                             
-                            if any(numElems == 0)
+                            if numel(numElems) == 1 && numElems == 0
+                                
+                                tmp{cellfun(@isempty, tmp)} = NaN;                                
+                                
+                            elseif any(numElems == 0)
+                                try
                                 nzSize = numElems(numElems ~= 0);
                                 nzSize = nzSize(1);
+                                
+                                catch
+                                    keyboard
+                                end
                                 
                                 tmp{cellfun(@isempty, tmp)} = NaN(1, nzSize);
                             end
@@ -1047,17 +1063,27 @@ classdef TrackArray
                 error('Error opening file %s for writing.', fn);                
             end
             
-            %Print file metadata
-            fprintf(fid, 'Filename, %s\n', obj.Filename);
-            fprintf(fid, 'Track data created, %s\n', obj.CreatedOn);
-            fprintf(fid, 'TimestampUnit, %s\n', obj.FileMetadata.TimestampUnit);
-            fprintf(fid, 'PxSize, %s\n', mat2str(obj.FileMetadata.PxSize));
-            fprintf(fid, 'PxSizeUnit, %s\n', obj.FileMetadata.PxSizeUnit);
-            fprintf(fid, 'ImgSize, %s\n', mat2str(obj.FileMetadata.ImgSize));
-            fprintf(fid, '\n');
+            %Print filemetadata if not empty
+            if ~isempty(obj.FileMetadata)
+                metadataFields = fieldnames(obj.FileMetadata);
+                
+                for iMD = 1:numel(metadataFields)
+                    
+                    switch class(obj.FileMetadata.(metadataFields{iMD}))
+                        
+                        case 'char'
+                            fprintf(fid, '%s, %s\n', metadataFields{iMD}, obj.FileMetadata.(metadataFields{iMD}));
+                            
+                        case 'double'
+                            fprintf(fid, '%s, %s\n', metadataFields{iMD}, mat2str(obj.FileMetadata.(metadataFields{iMD})));
+                            
+                    end
+                end
+                fprintf(fid, '\n');
+            end
             
             %Print column headers
-            datafields = fieldnames(obj.Tracks.Data);
+            datafields = fieldnames(obj.Tracks(1).Data);
             
             fprintf(fid, 'Track ID, MotherID, DaughterID, Frame');
             
