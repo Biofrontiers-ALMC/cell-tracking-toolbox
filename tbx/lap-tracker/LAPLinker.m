@@ -54,7 +54,7 @@ classdef LAPLinker
     %  ------------------
     %   assignToTrack  - Main method to call. Assigns new data to tracks
     %   updateMetadata - Sets file metadata options
-    %   newTrack       - Create a new track
+    %   startTrack     - Start a new track
     %   updateTrack    - Modify or add values to an existing track
     %   splitTrack     - Splits a track into two (used to handle 
     %                    division events)
