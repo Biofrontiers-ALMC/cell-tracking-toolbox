@@ -980,40 +980,55 @@ classdef TrackArray
             save(filename, 'TrackArrayData')
         end
         
-        function sOut = saveobj(obj)
+        function obj = importobj(obj, input)
+            %IMPORTOBJ  Import data from a TrackArray object
+            %
+            %  OBJ = IMPORTOBJ(OBJ, TA) will import data from another
+            %  TrackArray object TA. The purpose of this method is to
+            %  enable subclasses to load TrackArray data.
+            %
+            %  Examples:
+            %  %Create a TrackArray object
+            %  obj_original = TrackArray;
+            %
+            %  %... Populate tracks ...
+            %
+            %  %Create a new TrackArray object
+            %  obj_new = TrackArray;
+            %
+            %  %Copy data from the original object to the new
+            %  obj_new = importobj(obj_new, obj_original);
+            %
+            %
+            %  %Example of use in a sub-class function
+            %
+            %  classdef subTrackArray < TrackArray
+            %  
+            %  methods
+            %
+            %      function obj = importdata(obj, fn)
+            %
+            %          data = load(fn);
+            %          obj = importobj(obj, data);
+            %
+            %      end
+            %
+            %  end
+           
+            %See: https://www.mathworks.com/matlabcentral/answers/92434-how-do-i-cast-a-superclass-object-into-a-subclass-object-in-matlab-7-7-r2008b#answer_101785
             
-            sOut.LastID = obj.LastID;
-            sOut.Tracks = obj.Tracks;
-            sOut.FileMetadata = obj.FileMetadata;
-            sOut.CreatedOn = obj.CreatedOn;
-            
-        end
-        
-    end
-    
-    methods (Static)
-        
-        function obj = loadobj(s)
-            
-            if isstruct(s)
-                
-                newObj = TrackArray;
-                
-                newObj.LastID = s.LastID;
-                newObj.Tracks = s.Tracks;
-                newObj.FileMetadata = s.FileMetadata;
-                newObj.CreatedOn = s.CreatedOn;
-                
-                obj = newObj;
-                
-            else
-                obj = s;
+            C = metaclass(input);
+            P = C.Properties;
+            for k = 1:length(P)
+                if ~P{k}.Dependent
+                    obj.(P{k}.Name) = input.(P{k}.Name);
+                end
             end
-            
         end
         
+        
     end
-    
+   
     methods (Access = protected)
 
         function varargout = findtrack(obj, trackID, varargin)
@@ -1131,6 +1146,14 @@ classdef TrackArray
             fclose(fid);
                         
         end
+    end
+    
+    methods (Static)
+        
+
+        
+        
+        
     end
     
 end
