@@ -126,7 +126,36 @@ classdef LAPLinker
     methods
         
         function obj = LAPLinker(varargin)
-            %Constructor function
+            %LAPLINKER  Construct a new LAPLinker object
+            %
+            %  OBJ = LAPLINKER creates a new LAPLinker object with default
+            %  settings.
+            %
+            %  OBJ = LAPLINKER(S) will load settings in the struct S. S
+            %  should be a struct with settings as fieldnames. Any
+            %  unrecognized fields will be skipped without warning.
+            
+            if numel(varargin) == 1
+                
+                if ~isstruct(varargin{1});
+                    error('LAPLinker:InvalidInput', ...
+                        'Expected input to be a struct.');                    
+                end
+                
+                inputFields = fieldnames(varargin{1});
+                                
+                C = metaclass(obj);
+                P = C.Properties;
+                for k = 1:length(P)
+                    if ~P{k}.Dependent && ismember(P{k}.Name, inputFields)
+                        obj.(P{k}.Name) = varargin{1}.(P{k}.Name);
+                    end
+                end
+                
+            elseif numel(varargin) > 1
+                error('LAPLinker:TooManyInputArguments', ...
+                    'Too many input arguments. Expected one at most.');                
+            end
             
         end
         
@@ -1159,6 +1188,5 @@ classdef LAPLinker
         end
         
     end
-    
-    
+        
 end

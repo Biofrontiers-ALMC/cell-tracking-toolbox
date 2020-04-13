@@ -108,8 +108,11 @@ classdef TrackArray
         
         function dataFieldnames = get.Datafields(obj)
             
-            dataFieldnames = fieldnames(obj.Tracks);
-            
+            if ~isempty(obj.Tracks)
+                dataFieldnames = fieldnames(obj.Tracks(1).Data);
+            else
+                dataFieldnames = '';
+            end
         end
         
         
@@ -867,8 +870,11 @@ classdef TrackArray
                     
                     %Offset the labels to the right and slightly below the
                     %node center
-                    text(0, - 0.05, num2str(nodes(1).ID), 'HorizontalAlignment', 'center'); %Root
-                    text(X(2:end) + 0.2, Y(2:end) - 0.1, strsplit(num2str([nodes(2:end).ID])))
+                    text(0, Y(1) - 0.05 * Y(1), num2str(nodes(1).ID), ...
+                        'HorizontalAlignment', 'center', ...
+                        'Color', 'blue'); %Root
+                    text(X(2:end) + 0.02 * X(2:end), Y(2:end) - 0.01 * Y(2:end), strsplit(num2str([nodes(2:end).ID])), ...
+                        'Color', 'blue')
                     
                     set(gca, 'xTick', [])
                     
@@ -881,8 +887,11 @@ classdef TrackArray
                     
                     %Offset the labels to the right and slightly above the
                     %node center
-                    text(0, 0.2, num2str(nodes(1).ID), 'HorizontalAlignment', 'center'); %Root
-                    text(X(2:end) + 0.2, Y(2:end) + 0.2, strsplit(num2str([nodes(2:end).ID])))
+                    text(0, Y(1) + 0.02 * Y(1), num2str(nodes(1).ID),...
+                        'HorizontalAlignment', 'center', ...
+                        'Color', 'Blue'); %Root
+                    text(X(2:end) + 0.02 * X(2:end), Y(2:end) + 0.02 * Y(2:end), strsplit(num2str([nodes(2:end).ID])), ...
+                        'Color', 'Blue')
                     
                     %Invert the yaxis tick mark labels
                     yTicks = get(gca, 'yTick');
@@ -899,8 +908,10 @@ classdef TrackArray
                     
                     %Offset the labels to the right and slightly above the
                     %node center
-                    text(- 0.1, 0, num2str(nodes(1).ID)); %Root
-                    text(X(2:end) + 0.1, Y(2:end), strsplit(num2str([nodes(2:end).ID])))
+                    text(X(1) - 0.01 * X(1), 0, num2str(nodes(1).ID), ...
+                        'Color', 'Blue'); %Root
+                    text(X(2:end) + 0.01 * X(2:end), Y(2:end), strsplit(num2str([nodes(2:end).ID])), ...
+                        'Color', 'Blue')
                     
                     set(gca, 'yTick', [])
                     
@@ -953,7 +964,8 @@ classdef TrackArray
                     end
                     
                 otherwise
-                    error('Please specify an extension for the output file');
+                    error('TrackArray:export:UnsupportedFormat', ...
+                        '''%s'' is not a supported export format.', outputFormat);
                     
             end
             
