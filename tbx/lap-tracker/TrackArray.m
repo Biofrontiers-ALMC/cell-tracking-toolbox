@@ -194,7 +194,11 @@ classdef TrackArray
         
         %!!TODO: Setting motherID should set daughterIDs and vice versa
         function obj = setMotherID(obj, trackID, motherID)
-            
+            %SETMOTHERID  Set mother ID field for specified track
+            %
+            %  OBJ = SETMOTHERID(OBJ, TRACKID, MOTHERID) sets the
+            %  `MotherID` field of the specified track TRACKID to MOTHERID.
+                        
             %Check that track exists
             trackIndex = findtrack(obj, trackID, true);
             obj.Tracks(trackIndex).MotherID = motherID;
@@ -202,6 +206,11 @@ classdef TrackArray
         end
         
         function obj = setDaughterID(obj, trackID, daughterID)
+            %SETDAUGHTERID  Set daughter ID field for specified track
+            %
+            %  OBJ = SETDAUGHTERID(OBJ, TRACKID, DAUGHTERID) sets the
+            %  `DaughterID` field of the specified track TRACKID to
+            %  DAUGHTERID.
             
             %Check that track exists
             trackIndex = findtrack(obj, trackID, true);
@@ -626,20 +635,22 @@ classdef TrackArray
         function treeplot(obj, rootTrackID, varargin)
             %TREEPLOT  Plot track lineage as a binary tree
             %
-            %  TREEPLOT(OBJ) will plot the tree in the current axes. By
-            %  default, the tree will be plotted with branches growing
-            %  upwards, and the y-axis will be the height of each node.
+            %  TREEPLOT(OBJ, TRACKID) will plot the tree in the current
+            %  axes. By default, the tree will be plotted with branches
+            %  growing upwards, and the y-axis will be the height of each
+            %  node.
             %
             %  The tree is drawn using a grid-based algorithm, producing a
             %  plot similar to tournament brackets, where the branches in
             %  each level are evenly spaced apart.
             %
-            %  TREEPLOT(OBJ, PROPERTY) will plot the tree with each node
-            %  separated by the property specified. For example, to plot
-            %  the nodes positioned by the 'distance' property: PLOT(OBJ,
-            %  'distance')
+            %  TREEPLOT(OBJ, TRACKID, PROPERTY) will plot the tree with
+            %  each node separated by the property specified. For example,
+            %  to plot the nodes positioned by the 'distance' property:
+            %  PLOT(OBJ, 'distance')
             %
-            %  TREEPLOT(OBJ, 'direction') will plot the tree growing in the
+            %  TREEPLOT(OBJ, TRACKID, 'direction') will plot the tree
+            %  growing in the
             %  direction specified. By default, the 'direction' plotted is
             %  'up'. The following directions are allowed:
             %       'up'  - Root is at the bottom of plot, branches grow

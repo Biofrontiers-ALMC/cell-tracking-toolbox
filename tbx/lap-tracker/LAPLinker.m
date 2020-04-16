@@ -109,8 +109,6 @@ classdef LAPLinker
     
     properties (SetAccess = private)
         
-        metadata  %Struct for user to store metadata
-
         %Data structure for track data
         tracks = TrackArray;
         activeTrackIDs = [];
@@ -396,11 +394,11 @@ classdef LAPLinker
             %UPDATEMETADATA  Update the metadata struct
             %
             %  OBJ = UPDATEMETADATA(OBJ, PARAM1, VALUE1, ... PARAMN,
-            %  VALUEN) updates the 'metadata' property. PARAM1...N should
-            %  be strings containing the name of the metadata field. The
-            %  corresponding field values should be provided in VALUE1...N.
-            %  There should be the same number of values as parameter
-            %  names.
+            %  VALUEN) updates the 'FileMetadata' property of the track
+            %  array. PARAM1...N should be strings containing the name of
+            %  the metadata field. The corresponding field values should be
+            %  provided in VALUE1...N. There should be the same number of
+            %  values as parameter names.
             %
             %  The intent is of this function is to allow file specific
             %  metadata to be saved (e.g. filename, pixel size, image size
@@ -453,7 +451,7 @@ classdef LAPLinker
             props = properties(obj);
             
             %Exclude data properties
-            props(ismember(props, {'metadata', 'tracks', 'isTrackActive', 'NumTracks'})) = [];
+            props(ismember(props, {'tracks', 'isTrackActive', 'NumTracks'})) = [];
             
             fid = fopen(fileOut, 'w');
             
@@ -547,7 +545,7 @@ classdef LAPLinker
             props = properties(obj);
             
             %Exclude data properties
-            props(ismember(props, {'metadata', 'tracks', 'isTrackActive', 'NumTracks'})) = [];
+            props(ismember(props, {'tracks', 'isTrackActive', 'NumTracks'})) = [];
             
             while ~feof(fid)
                 
