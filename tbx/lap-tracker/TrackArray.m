@@ -108,7 +108,7 @@ classdef TrackArray
         
         function dataFieldnames = get.Datafields(obj)
             
-            dataFieldnames = fieldnames(obj.Tracks);
+            dataFieldnames = fieldnames(obj.Tracks.Data);
             
         end
         
