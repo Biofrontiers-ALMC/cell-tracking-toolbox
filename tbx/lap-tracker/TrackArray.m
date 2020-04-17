@@ -108,8 +108,11 @@ classdef TrackArray
         
         function dataFieldnames = get.Datafields(obj)
             
-            dataFieldnames = fieldnames(obj.Tracks.Data);
-            
+            if ~isempty(obj.Tracks)
+                dataFieldnames = fieldnames(obj.Tracks(1).Data);
+            else
+                dataFieldnames = '';
+            end
         end
         
         
