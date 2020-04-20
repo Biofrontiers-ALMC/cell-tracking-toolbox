@@ -109,8 +109,6 @@ classdef LAPLinker
     
     properties (SetAccess = private)
         
-        metadata  %Struct for user to store metadata
-
         %Data structure for track data
         tracks = TrackArray;
         activeTrackIDs = [];
@@ -126,7 +124,36 @@ classdef LAPLinker
     methods
         
         function obj = LAPLinker(varargin)
-            %Constructor function
+            %LAPLINKER  Construct a new LAPLinker object
+            %
+            %  OBJ = LAPLINKER creates a new LAPLinker object with default
+            %  settings.
+            %
+            %  OBJ = LAPLINKER(S) will load settings in the struct S. S
+            %  should be a struct with settings as fieldnames. Any
+            %  unrecognized fields will be skipped without warning.
+            
+            if numel(varargin) == 1
+                
+                if ~isstruct(varargin{1});
+                    error('LAPLinker:InvalidInput', ...
+                        'Expected input to be a struct.');                    
+                end
+                
+                inputFields = fieldnames(varargin{1});
+                                
+                C = metaclass(obj);
+                P = C.Properties;
+                for k = 1:length(P)
+                    if ~P{k}.Dependent && ismember(P{k}.Name, inputFields)
+                        obj.(P{k}.Name) = varargin{1}.(P{k}.Name);
+                    end
+                end
+                
+            elseif numel(varargin) > 1
+                error('LAPLinker:TooManyInputArguments', ...
+                    'Too many input arguments. Expected one at most.');                
+            end
             
         end
         
@@ -367,11 +394,11 @@ classdef LAPLinker
             %UPDATEMETADATA  Update the metadata struct
             %
             %  OBJ = UPDATEMETADATA(OBJ, PARAM1, VALUE1, ... PARAMN,
-            %  VALUEN) updates the 'metadata' property. PARAM1...N should
-            %  be strings containing the name of the metadata field. The
-            %  corresponding field values should be provided in VALUE1...N.
-            %  There should be the same number of values as parameter
-            %  names.
+            %  VALUEN) updates the 'FileMetadata' property of the track
+            %  array. PARAM1...N should be strings containing the name of
+            %  the metadata field. The corresponding field values should be
+            %  provided in VALUE1...N. There should be the same number of
+            %  values as parameter names.
             %
             %  The intent is of this function is to allow file specific
             %  metadata to be saved (e.g. filename, pixel size, image size
@@ -424,7 +451,7 @@ classdef LAPLinker
             props = properties(obj);
             
             %Exclude data properties
-            props(ismember(props, {'metadata', 'tracks', 'isTrackActive', 'NumTracks'})) = [];
+            props(ismember(props, {'tracks', 'isTrackActive', 'NumTracks'})) = [];
             
             fid = fopen(fileOut, 'w');
             
@@ -518,7 +545,7 @@ classdef LAPLinker
             props = properties(obj);
             
             %Exclude data properties
-            props(ismember(props, {'metadata', 'tracks', 'isTrackActive', 'NumTracks'})) = [];
+            props(ismember(props, {'tracks', 'isTrackActive', 'NumTracks'})) = [];
             
             while ~feof(fid)
                 
@@ -1159,6 +1186,5 @@ classdef LAPLinker
         end
         
     end
-    
-    
+        
 end

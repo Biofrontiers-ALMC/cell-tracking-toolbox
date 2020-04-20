@@ -194,7 +194,11 @@ classdef TrackArray
         
         %!!TODO: Setting motherID should set daughterIDs and vice versa
         function obj = setMotherID(obj, trackID, motherID)
-            
+            %SETMOTHERID  Set mother ID field for specified track
+            %
+            %  OBJ = SETMOTHERID(OBJ, TRACKID, MOTHERID) sets the
+            %  `MotherID` field of the specified track TRACKID to MOTHERID.
+                        
             %Check that track exists
             trackIndex = findtrack(obj, trackID, true);
             obj.Tracks(trackIndex).MotherID = motherID;
@@ -202,6 +206,11 @@ classdef TrackArray
         end
         
         function obj = setDaughterID(obj, trackID, daughterID)
+            %SETDAUGHTERID  Set daughter ID field for specified track
+            %
+            %  OBJ = SETDAUGHTERID(OBJ, TRACKID, DAUGHTERID) sets the
+            %  `DaughterID` field of the specified track TRACKID to
+            %  DAUGHTERID.
             
             %Check that track exists
             trackIndex = findtrack(obj, trackID, true);
@@ -626,20 +635,22 @@ classdef TrackArray
         function treeplot(obj, rootTrackID, varargin)
             %TREEPLOT  Plot track lineage as a binary tree
             %
-            %  TREEPLOT(OBJ) will plot the tree in the current axes. By
-            %  default, the tree will be plotted with branches growing
-            %  upwards, and the y-axis will be the height of each node.
+            %  TREEPLOT(OBJ, TRACKID) will plot the tree in the current
+            %  axes. By default, the tree will be plotted with branches
+            %  growing upwards, and the y-axis will be the height of each
+            %  node.
             %
             %  The tree is drawn using a grid-based algorithm, producing a
             %  plot similar to tournament brackets, where the branches in
             %  each level are evenly spaced apart.
             %
-            %  TREEPLOT(OBJ, PROPERTY) will plot the tree with each node
-            %  separated by the property specified. For example, to plot
-            %  the nodes positioned by the 'distance' property: PLOT(OBJ,
-            %  'distance')
+            %  TREEPLOT(OBJ, TRACKID, PROPERTY) will plot the tree with
+            %  each node separated by the property specified. For example,
+            %  to plot the nodes positioned by the 'distance' property:
+            %  PLOT(OBJ, 'distance')
             %
-            %  TREEPLOT(OBJ, 'direction') will plot the tree growing in the
+            %  TREEPLOT(OBJ, TRACKID, 'direction') will plot the tree
+            %  growing in the
             %  direction specified. By default, the 'direction' plotted is
             %  'up'. The following directions are allowed:
             %       'up'  - Root is at the bottom of plot, branches grow
@@ -870,8 +881,11 @@ classdef TrackArray
                     
                     %Offset the labels to the right and slightly below the
                     %node center
-                    text(0, - 0.05, num2str(nodes(1).ID), 'HorizontalAlignment', 'center'); %Root
-                    text(X(2:end) + 0.2, Y(2:end) - 0.1, strsplit(num2str([nodes(2:end).ID])))
+                    text(0, Y(1) - 0.05 * Y(1), num2str(nodes(1).ID), ...
+                        'HorizontalAlignment', 'center', ...
+                        'Color', 'blue'); %Root
+                    text(X(2:end) + 0.02 * X(2:end), Y(2:end) - 0.01 * Y(2:end), strsplit(num2str([nodes(2:end).ID])), ...
+                        'Color', 'blue')
                     
                     set(gca, 'xTick', [])
                     
@@ -884,8 +898,11 @@ classdef TrackArray
                     
                     %Offset the labels to the right and slightly above the
                     %node center
-                    text(0, 0.2, num2str(nodes(1).ID), 'HorizontalAlignment', 'center'); %Root
-                    text(X(2:end) + 0.2, Y(2:end) + 0.2, strsplit(num2str([nodes(2:end).ID])))
+                    text(0, Y(1) + 0.02 * Y(1), num2str(nodes(1).ID),...
+                        'HorizontalAlignment', 'center', ...
+                        'Color', 'Blue'); %Root
+                    text(X(2:end) + 0.02 * X(2:end), Y(2:end) + 0.02 * Y(2:end), strsplit(num2str([nodes(2:end).ID])), ...
+                        'Color', 'Blue')
                     
                     %Invert the yaxis tick mark labels
                     yTicks = get(gca, 'yTick');
@@ -902,8 +919,10 @@ classdef TrackArray
                     
                     %Offset the labels to the right and slightly above the
                     %node center
-                    text(- 0.1, 0, num2str(nodes(1).ID)); %Root
-                    text(X(2:end) + 0.1, Y(2:end), strsplit(num2str([nodes(2:end).ID])))
+                    text(X(1) - 0.01 * X(1), 0, num2str(nodes(1).ID), ...
+                        'Color', 'Blue'); %Root
+                    text(X(2:end) + 0.01 * X(2:end), Y(2:end), strsplit(num2str([nodes(2:end).ID])), ...
+                        'Color', 'Blue')
                     
                     set(gca, 'yTick', [])
                     
@@ -956,7 +975,8 @@ classdef TrackArray
                     end
                     
                 otherwise
-                    error('Please specify an extension for the output file');
+                    error('TrackArray:export:UnsupportedFormat', ...
+                        '''%s'' is not a supported export format.', outputFormat);
                     
             end
             
@@ -983,40 +1003,55 @@ classdef TrackArray
             save(filename, 'TrackArrayData')
         end
         
-        function sOut = saveobj(obj)
+        function obj = importobj(obj, input)
+            %IMPORTOBJ  Import data from a TrackArray object
+            %
+            %  OBJ = IMPORTOBJ(OBJ, TA) will import data from another
+            %  TrackArray object TA. The purpose of this method is to
+            %  enable subclasses to load TrackArray data.
+            %
+            %  Examples:
+            %  %Create a TrackArray object
+            %  obj_original = TrackArray;
+            %
+            %  %... Populate tracks ...
+            %
+            %  %Create a new TrackArray object
+            %  obj_new = TrackArray;
+            %
+            %  %Copy data from the original object to the new
+            %  obj_new = importobj(obj_new, obj_original);
+            %
+            %
+            %  %Example of use in a sub-class function
+            %
+            %  classdef subTrackArray < TrackArray
+            %  
+            %  methods
+            %
+            %      function obj = importdata(obj, fn)
+            %
+            %          data = load(fn);
+            %          obj = importobj(obj, data);
+            %
+            %      end
+            %
+            %  end
+           
+            %See: https://www.mathworks.com/matlabcentral/answers/92434-how-do-i-cast-a-superclass-object-into-a-subclass-object-in-matlab-7-7-r2008b#answer_101785
             
-            sOut.LastID = obj.LastID;
-            sOut.Tracks = obj.Tracks;
-            sOut.FileMetadata = obj.FileMetadata;
-            sOut.CreatedOn = obj.CreatedOn;
-            
-        end
-        
-    end
-    
-    methods (Static)
-        
-        function obj = loadobj(s)
-            
-            if isstruct(s)
-                
-                newObj = TrackArray;
-                
-                newObj.LastID = s.LastID;
-                newObj.Tracks = s.Tracks;
-                newObj.FileMetadata = s.FileMetadata;
-                newObj.CreatedOn = s.CreatedOn;
-                
-                obj = newObj;
-                
-            else
-                obj = s;
+            C = metaclass(input);
+            P = C.Properties;
+            for k = 1:length(P)
+                if ~P{k}.Dependent
+                    obj.(P{k}.Name) = input.(P{k}.Name);
+                end
             end
-            
         end
         
+        
     end
-    
+   
     methods (Access = protected)
 
         function varargout = findtrack(obj, trackID, varargin)
@@ -1134,6 +1169,14 @@ classdef TrackArray
             fclose(fid);
                         
         end
+    end
+    
+    methods (Static)
+        
+
+        
+        
+        
     end
     
 end

@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.toolbox" plugin-version="1.0">
-  <configuration build-checksum="144585590" file="D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build\Linear Assignment Cell Tracker.prj" location="D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build" name="Linear Assignment Cell Tracker" target="target.toolbox" target-name="Package Toolbox">
+  <configuration build-checksum="144585590" file="D:\Projects\Linear Assignment Linker\code\build\Linear Assignment Cell Tracker.prj" location="D:\Projects\Linear Assignment Linker\code\build" name="Linear Assignment Cell Tracker" target="target.toolbox" target-name="Package Toolbox">
     <param.appname>Linear Assignment Cell Tracker v2.0.0</param.appname>
     <param.authnamewatermark>Jian Wei Tay</param.authnamewatermark>
     <param.email>jian.tay@colorado.edu</param.email>
@@ -79,18 +79,17 @@
       <param.additional.sw.linux.url />
     </unset>
     <fileset.rootdir>
-      <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx</file>
+      <file>D:\Projects\Linear Assignment Linker\code\tbx</file>
     </fileset.rootdir>
     <fileset.rootfiles>
-      <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\app</file>
-      <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\docs</file>
-      <file>D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\tbx\lap-tracker</file>
+      <file>D:\Projects\Linear Assignment Linker\code\tbx\docs</file>
+      <file>D:\Projects\Linear Assignment Linker\code\tbx\lap-tracker</file>
     </fileset.rootfiles>
     <fileset.depfun.included />
     <fileset.depfun.excluded />
     <fileset.package />
     <build-deliverables>
-      <file location="${PROJECT_ROOT}" name="Linear Assignment Cell Tracker v2.0.0.mltbx" optional="false">D:\Jian\Documents\Projects\coreCode\lap-cell-tracker\code\build\Linear Assignment Cell Tracker v2.0.0.mltbx</file>
+      <file location="${PROJECT_ROOT}" name="Linear Assignment Cell Tracker v2.0.0.mltbx" optional="false">D:\Projects\Linear Assignment Linker\code\build\Linear Assignment Cell Tracker v2.0.0.mltbx</file>
     </build-deliverables>
     <workflow />
     <matlab>
