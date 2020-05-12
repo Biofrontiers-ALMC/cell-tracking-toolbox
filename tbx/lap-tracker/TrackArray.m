@@ -635,39 +635,33 @@ classdef TrackArray
         function treeplot(obj, rootTrackID, varargin)
             %TREEPLOT  Plot track lineage as a binary tree
             %
-            %  TREEPLOT(OBJ, TRACKID) will plot the tree in the current
-            %  axes. By default, the tree will be plotted with branches
-            %  growing upwards, and the y-axis will be the height of each
-            %  node.
+            %  TREEPLOT(OBJ, TRACKID) will plot the lineage of the track
+            %  specified as a tree. By default, the tree is plotted with
+            %  branches growing upwards from the root track specified by
+            %  TRACKID. The y-axis indicates the frames that the track
+            %  exists.
             %
-            %  The tree is drawn using a grid-based algorithm, producing a
-            %  plot similar to tournament brackets, where the branches in
-            %  each level are evenly spaced apart.
-            %
-            %  TREEPLOT(OBJ, TRACKID, PROPERTY) will plot the tree with
-            %  each node separated by the property specified. For example,
-            %  to plot the nodes positioned by the 'distance' property:
-            %  PLOT(OBJ, 'distance')
-            %
-            %  TREEPLOT(OBJ, TRACKID, 'direction') will plot the tree
-            %  growing in the
-            %  direction specified. By default, the 'direction' plotted is
-            %  'up'. The following directions are allowed:
+            %  TREEPLOT(..., 'direction', DIRECTION) will plot the tree
+            %  growing in the direction specified. Valid values for
+            %  DIRECTION are:
             %       'up'  - Root is at the bottom of plot, branches grow
-            %               upwards.
+            %               upwards. This is the default behavior.
             %     'down'  - Root is at the top of the plot, branches grow
             %               downwards.
             %     'right' - Root is on the left of plot, branches grow
             %               right.
             %
-            %  TREEPLOT(OBJ, ..., 'cumuldist', true) will plot the nodes
-            %  separation cumulatively.
-            %
-            %  TREEPLOT(OBJ, ..., 'symmetric') will scale the non-data axis so
-            %  that the tree is centered in the figure. This could make
-            %  plots with missing branches look better.
+            %  TREEPLOT(..., 'timeunits', TUNITS) will convert the y-axis
+            %  of the tree into the time units specified. TUNITS should be
+            %  a string and should describe a valid unit of time such as
+            %  'hours', 'minutes', 'seconds' or 'frames' (default). 
+            %  NOTE: For this property to take effect, the file metadata 
+            %  must have a property called 'Timestamps'.
             %
             %Implementation notes:
+            %  * The tree is drawn using a grid-based algorithm, producing
+            %    a plot similar to tournament brackets, where the branches 
+            %    in each level are evenly spaced apart.
             %
             %  * During the first part of the code, the algorithm assigns X
             %    and Y values to each node in the tree, defined as though
@@ -711,6 +705,8 @@ classdef TrackArray
             
             %Default plotting options
             plotDirection = 'up';
+            timeUnits = 'frames';
+            timeMultiplier = 1;
             axSymmetric = false;
             
             %Parse input arguments
@@ -721,6 +717,11 @@ classdef TrackArray
                     
                     case 'direction'
                         plotDirection = varargin{iP + 1};
+                        iP = iP + 2;
+                        
+                    case 'timeunits'
+                        timeUnits = varargin{iP + 1};
+                        timeMultiplier = TrackArray.getTimeMultiplier(obj.FileMetadata.TimestampUnits, varargin{iP + 1});
                         iP = iP + 2;
                         
                     case {'cumdist', 'cumuldist'}
@@ -809,8 +810,6 @@ classdef TrackArray
             for ptrNode = 2:numel(nodes)
                                     
                 if nodes(ptrNode).isLeft
-                    
-%nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X
                     nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X - 2^(treeHeight - nodes(ptrNode).Height);
                 else
                     nodes(ptrNode).X = nodes(nodes(ptrNode).ParentIndex).X + 2^(treeHeight - nodes(ptrNode).Height);
@@ -825,6 +824,16 @@ classdef TrackArray
                     nodes(nodes(ptrNode).ParentIndex).Y...
                     obj.Tracks(nodes(ptrNode).ID).Frames(end)];
             
+            end
+            
+            %Convert Y values units to time if specified
+            if ~strcmpi(timeUnits, 'frames')
+                
+                for ii = 1:numel(nodes)
+                    nodes(ii).Y = obj.FileMetadata.Timestamps(nodes(ii).Y) * timeMultiplier;
+                    nodes(ii).lineY = obj.FileMetadata.Timestamps(nodes(ii).lineY) * timeMultiplier;
+                end
+                
             end
             
             
@@ -932,6 +941,7 @@ classdef TrackArray
                     end
             end
                         
+            
         end
         
         
@@ -1171,9 +1181,47 @@ classdef TrackArray
         end
     end
     
-    methods (Static)
+    methods (Static, Hidden)
         
-
+        function timeMultiplier = getTimeMultiplier(originalUnits, desiredUnits)
+            %GETTIMEMULTIPLIER  Returns a multiplier to convert time units
+            %
+            %  M = TrackArray.GETTIMEMULTIPLIER(ORIGINAL, DESIRED) returns
+            %  the multiplier required to convert the ORIGINAL unit of time
+            %  to the DESIRED.
+            %
+            %  The following inputs are supported (equivalent units are
+            %  grouped together):
+            %  * 'seconds', 'second', 's'
+            %  * 'hours', 'hour', 'h'
+            %
+            %  Example:
+            %  M = TrackArray.GETTIMEMULTIPLIER('s', 'hours')
+            %  %Should return M = 1/3600 = 2.7778e-04
+            %  
+            
+            %Algorithm: Convert original units to seconds, then convert to
+            %desired units.
+            switch lower(originalUnits)
+                case {'seconds', 'second', 's'}
+                    inputMult = 1;
+                                        
+                case {'hours', 'hour', 'h'}
+                    inputMult = 3600;
+            end
+            
+            switch lower(desiredUnits)
+                case {'seconds', 'second', 's'}
+                    outputMult = 1;
+                
+                case {'hours', 'hour', 'h'} 
+                    outputMult = 1/3600;
+            end
+            
+            timeMultiplier = inputMult * outputMult;
+            
+        
+        end
         
         
         
