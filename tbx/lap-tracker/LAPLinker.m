@@ -135,7 +135,7 @@ classdef LAPLinker
             
             if numel(varargin) == 1
                 
-                if ~isstruct(varargin{1});
+                if ~isstruct(varargin{1})
                     error('LAPLinker:InvalidInput', ...
                         'Expected input to be a struct.');                    
                 end
