@@ -562,14 +562,26 @@ classdef TrackArray
         function IDout = traverse(obj, rootTrackID, varargin)
             %TRAVERSE  Return track IDs in specified order
             %
-            %  M = TRAVERSE(OBJ, ROOTTRACKID) will traverse the tree in the
-            %  specified order, returning track IDs in the vector M.
+            %  M = TRAVERSE(OBJ, ROOT) will traverse the tree in preorder,
+            %  returning track IDs in the vector M. In preorder traversal,
+            %  the returned track IDs M starts with the root, then down the
+            %  left tree, then the right tree.
             %
-            %  Currently, only preorder traversal is supported, e.g.
-            %  the order starts with the root, then down the left tree,
-            %  then the right tree.
-            
-            direction = 'inorder';
+            %  M = TRAVERSE(OBJ, ROOT, DIRECTION) returns the track IDs in
+            %  the traversal direction specified. DIRECTION should be a
+            %  string indicating the direction of traversal:
+            %
+            %    'preorder' - Return node IDs starting the root, travelling
+            %    down the left subtree, then the right subtree.
+            %  
+            %    'breadthfirst' or 'level' - Return node IDs in level order
+            %    starting from root node and ending at the terminal nodes.
+            %     
+            %    'backwards' or 'back' - Return node IDs starting from the
+            %    root node and travelling backwards until a node with no
+            %    mother track ID is encountered.
+                        
+            direction = 'preorder';
             if ~isempty(varargin)
                 direction = varargin{1};
             end
@@ -628,6 +640,20 @@ classdef TrackArray
                         
                     end
                     IDout(ptrOut:end) = [];
+                    
+                case {'backwards', 'back'}
+                    %Trace from root cell back to first ancestor
+                    
+                    IDout(end) = rootTrackID;
+                    ptrStart = numel(IDout);
+                    
+                    while ~isnan(obj.Tracks(IDout(ptrStart)).MotherID)
+                        IDout(ptrStart - 1) = obj.Tracks(IDout(ptrStart)).MotherID;
+                        ptrStart = ptrStart - 1;
+                    end
+                    
+                    IDout = IDout(ptrStart:end);
+                    
             end
                     
         end
@@ -1222,8 +1248,6 @@ classdef TrackArray
             
         
         end
-        
-        
         
     end
     
