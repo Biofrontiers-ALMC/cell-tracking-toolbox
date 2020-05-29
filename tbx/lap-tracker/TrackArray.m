@@ -58,10 +58,9 @@ classdef TrackArray
     end
         
     properties (Dependent)
-        
         NumTracks
+        MaxFrame
         Datafields
-        
     end
     
     methods
@@ -75,6 +74,23 @@ classdef TrackArray
             
         end
         
+        function maxFrame = get.MaxFrame(obj)
+            if ~isempty(obj.Tracks)
+                maxFrame = max(cat(2, obj.Tracks.Frames));
+            else
+                maxFrame = [];
+            end
+        end
+        
+        function dataFieldnames = get.Datafields(obj)
+            
+            if ~isempty(obj.Tracks)
+                dataFieldnames = fieldnames(obj.Tracks(1).Data);
+            else
+                dataFieldnames = '';
+            end
+        end
+        
         function numTracks = numel(obj)
             %Equal to NumTracks
             
@@ -83,6 +99,7 @@ classdef TrackArray
         end
         
         %--- Get/set FileMetadata 
+        
         function obj = setFileMetadata(obj, varargin)
             %SETFILEMETADATA  Set file metadata fields
             %
@@ -105,16 +122,6 @@ classdef TrackArray
                 obj.FileMetadata.(varargin{iP}) = varargin{iP + 1};
             end
         end
-        
-        function dataFieldnames = get.Datafields(obj)
-            
-            if ~isempty(obj.Tracks)
-                dataFieldnames = fieldnames(obj.Tracks(1).Data);
-            else
-                dataFieldnames = '';
-            end
-        end
-        
         
         %--- Track functions
         % Notes:
