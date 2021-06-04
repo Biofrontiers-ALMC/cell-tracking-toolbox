@@ -67,6 +67,11 @@ To contribute code directly, please submit a [Merge Request](https://docs.gitlab
 
 Note: In general, your code will have to pass the unit tests listed in the `tests` folder. You can check that they do by using the [`runtests` function in MATLAB](https://www.mathworks.com/help/matlab/ref/runtests.html).
 
+#### Authors
+
+This toolbox was developed by Dr. Jian Wei Tay (jian.tay@colorado.edu).
+
+
 References
 ----------
 
