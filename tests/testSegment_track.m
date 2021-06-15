@@ -33,12 +33,12 @@ for iT = 1:(bfr.sizeT - 2)
     
     IBF = repmat(IBF, [1, 1, 3]);
     
-    mask = fluorescenceSeg(I, struct('thFactor', 5));
+    mask = fluorescenceSeg(I, struct('thFactor', 3));
         
     outlines = bwperim(mask);
     outlines = imdilate(outlines, ones(1));
-    Iout = showoverlay(double(I), outlines, 'normalize', true);
-    
+    %Iout = showoverlay(double(I), outlines, 'normalize', true);
+    Iout = uint8(mask) * uint8(255);
     
     cellData = regionprops(mask, I, 'Centroid', 'MajorAxisLength', 'MeanIntensity', 'PixelIdxList');
     
@@ -68,6 +68,8 @@ for iT = 1:(bfr.sizeT - 2)
             
         end
     end    
+
+    IBF = uint8(IBF * 255);
     
     writeVideo(vr_an, [IBF, Iout]);
     
@@ -77,7 +79,7 @@ for iT = 1:(bfr.sizeT - 2)
     if iT == 1
         imwrite(A,map,'movie.gif', 'Loopcount', inf, 'DelayTime', 0.14);
         
-    else
+    else    
         imwrite(A,map, 'movie.gif', 'Writemode', 'append', 'DelayTime', 0.14);
     end   
     

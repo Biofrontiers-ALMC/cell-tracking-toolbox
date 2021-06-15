@@ -1,14 +1,18 @@
 # Linear Assignment Tracking
 
-This repository holds the *source code* for implementing object tracking using the linear assignment approach. 
+The Linear Assignment Tracking toolbox implements MATLAB classes to track moving cells in microscope images and analyze resulting data.
 
 ## Downloading and using the toolbox
 
-Full instructions on how to download, install, and use the toolbox is on the [Project Wiki](https://biof-git.colorado.edu/biofrontiers-imaging/lap-cell-tracker/wikis/home).
+The latest releases can be found [here](https://github.com/Biofrontiers-ALMC/cell-tracking-toolbox/releases).
+
+Full instructions on how to download, install, and use the toolbox is on the [Project Wiki](https://github.com/Biofrontiers-ALMC/cell-tracking-toolbox/wiki).
 
 ## Downloading the source code
 
-The source code is available on the [biof-git repository](https://biof-git.colorado.edu/biofrontiers-imaging/lap-cell-tracker). The ``master`` branch contains the latest stable code, while the ``dev`` branch contains daily builds. You should only use the dev branch if you know what you are doing.
+**:warning: You do not need the source code unless you are planning to contribute to this project.**
+
+The ``master`` branch contains the latest stable code, while the ``dev`` branch contains daily builds. You should only use the dev branch if you know what you are doing.
 
 ### Using the Gitlab interface
 
@@ -35,14 +39,6 @@ To clone the repository using [Git](https://git-scm.com/):
 
 If you have any issues, please email the developer or bit-help@colorado.edu for help.
 
-#### Adding an SSH key
-
-You must have an account on Gitlab to be able to perform the following actions. Please email bit-help@colorado.edu for more information.
-
-You can check if you have an SSH key by going to [your settings -> SSH Keys](https://biof-git.colorado.edu/profile/keys).
-
-If you do not have an SSH key added, please generate a key following ([these instructions](https://biof-git.colorado.edu/help/ssh/README.md)).
-
 ## Developer's Guide
 
 ### Directory structure
@@ -59,11 +55,11 @@ The directory of the Git repository is arranged according to the best practices 
 
 #### Reporting bugs and issues
 
-Please report bugs and issues using the [Issues Tracker](https://biof-git.colorado.edu/biofrontiers-imaging/lap-cell-tracker/issues).
+Please report bugs and issues using the [Issues Tracker](https://github.com/Biofrontiers-ALMC/cell-tracking-toolbox/issues).
 
 #### Merge/Pull requests
 
-To contribute code directly, please submit a [Merge Request](https://docs.gitlab.com/ee/gitlab-basics/add-merge-request.html).
+To contribute code directly, please submit a [Pull Request](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
 
 Note: In general, your code will have to pass the unit tests listed in the `tests` folder. You can check that they do by using the [`runtests` function in MATLAB](https://www.mathworks.com/help/matlab/ref/runtests.html).
 
