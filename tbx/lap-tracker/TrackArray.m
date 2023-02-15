@@ -268,7 +268,7 @@ classdef TrackArray
                         else
                             %Append new data to the start
                             obj.Tracks(trackIndex).Data.(currDataFields{iP}) = ...
-                                [trackData.(inputFields{iP}), obj.Tracks(trackIndex).Data.(inputFields{iP})];
+                                [{trackData.(inputFields{iP})}, obj.Tracks(trackIndex).Data.(inputFields{iP})];
                         end
                     end
                     
@@ -297,8 +297,8 @@ classdef TrackArray
                         else
                             
                             %Append new data to the end
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}) = ...
-                                [obj.Tracks(trackIndex).Data.(inputFields{iP}), trackData.(inputFields{iP})];
+                            obj.Tracks(trackIndex).Data.(inputFields{iP}){end + 1} = ...
+                                trackData.(inputFields{iP});
                             
                         end
                     end
