@@ -43,6 +43,7 @@ classdef LAPLinker
     %   TrackDivision       - If true, division events will be tracked.
     %                         Otherwise, new tracks will be created for
     %                         new objects
+    %   DivisionType        - 'mammalian' or 'bacteria'
     %   DivisionParameter   - Property to determine division
     %   DivisionScoreMetric - Function to compute division cost
     %   DivisionScoreRange  - Min and max values for a division to occur
@@ -100,6 +101,7 @@ classdef LAPLinker
         MaxTrackAge = 2;  %How many frames a track can go before tracking stops
         
         TrackDivision = false;  %If true, division events will be tracked
+        DivisionType = 'bacteria';
         DivisionParameter = 'Centroid';  %Data fieldname used to track division
         DivisionScoreMetric = 'euclidean';  %Metric to compute division likelihood
         DivisionScoreRange = [0, 2];  %Valid division score range
@@ -296,63 +298,121 @@ classdef LAPLinker
                             %Test for division
                             if obj.TrackDivision
                                 
-                                cost_to_divide = Inf(numel(obj.activeTrackIDs), 1);
+                                %Test if cell divided
+                                switch lower(obj.DivisionType)
+
+                                    case 'mitosis'
+                                        %TODO
+
+                                        %Determine if cells divided using
+                                        %the criteria from eLife paper:
+                                        % Look for a nuclei in a region of
+                                        % 30 pixels around each unassigned
+                                        % nucleus. If there is a nucleus
+                                        % with a similar area and
+                                        % intensity, and nucleus not
+                                        % divided recently, then mitosis.
+
+                                        %Look for objects which exist
+                                        %around the newly created object
+
+                                        for acTr = 1:numel(obj.activeTrackIDs)
                                 
-                                %Compute the division cost matrix
-                                for acTr = 1:numel(obj.activeTrackIDs)
-                                    
-                                    if obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1) >= frame || ...
-                                            obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(end) < frame
+                                            %Do not check current object
+                                            if obj.activeTrackIDs(acTr) == newTrackID
+                                                continue;
+                                            end
+
+                                            %Check if object exists at the
+                                            %current frame
+                                            if obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frame(end) == frame
+
+                                                %Check if the position is
+                                                %within 30 px of current
+                                                %nucleus
+                                                lastPos = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.DivisionParameter){end - 1};
+
+                                                if sqrt(sum((newData(rowsol(iSol)).(obj.DivisionParameter) - lastPos).^2)) < 30
+                                                    %FOUND A CELL
+
+
+
+                                                end
+
+
+                                            end
+
+
+
+
+
                                         
-                                        %Check if the track is a valid
-                                        %candidate
-                                        cost_to_divide(acTr) = Inf;
+                                        end
                                         
-                                    elseif ~isnan(obj.tracks.Tracks(obj.activeTrackIDs(acTr)).MotherID) && ...
-                                            (frame - obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1)) < obj.MinFramesBetweenDiv
-                                        
-                                        %Don't let cells divide too quickly
-                                        cost_to_divide(acTr) = Inf;
-                                        
-                                    else
-                                        
-                                        %Check data with previous frame
-                                        lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.DivisionParameter){end - 1};
-                                        cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
-                                        
-                                    end
+
+
+
+                                    otherwise
+
+                                        cost_to_divide = Inf(numel(obj.activeTrackIDs), 1);
+
+                                        %Compute the division cost matrix
+                                        for acTr = 1:numel(obj.activeTrackIDs)
+
+                                            if obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1) >= frame || ...
+                                                    obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(end) < frame
+
+                                                %Check if the track is a valid
+                                                %candidate
+                                                cost_to_divide(acTr) = Inf;
+
+                                            elseif ~isnan(obj.tracks.Tracks(obj.activeTrackIDs(acTr)).MotherID) && ...
+                                                    (frame - obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1)) < obj.MinFramesBetweenDiv
+
+                                                %Don't let cells divide too quickly
+                                                cost_to_divide(acTr) = Inf;
+
+                                            else
+
+                                                %Check data with previous frame
+                                                lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.DivisionParameter){end - 1};
+                                                cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
+
+                                            end
+
+                                        end
+
+                                        %Block invalid division events
+                                        cost_to_divide(cost_to_divide < min(obj.DivisionScoreRange) | cost_to_divide > max(obj.DivisionScoreRange)) = Inf;
+
+                                        [min_div_cost, min_div_ind] = min(cost_to_divide);
+
+                                        if ~isinf(min_div_cost)
+
+                                            %Split the mother track
+                                            [obj, daughterID] = splitTrack(obj, obj.activeTrackIDs(min_div_ind), frame);
+
+                                            %Update mother
+                                            obj.tracks = setDaughterID(obj.tracks, ...
+                                                obj.activeTrackIDs(min_div_ind), ...
+                                                [newTrackID, daughterID]);
+
+                                            %Update daughters
+                                            obj.tracks = setMotherID(obj.tracks, ...
+                                                newTrackID, ...
+                                                obj.activeTrackIDs(min_div_ind));
+
+                                            obj.tracks = setMotherID(obj.tracks, ...
+                                                daughterID, ...
+                                                obj.activeTrackIDs(min_div_ind));
+
+                                            %Set mother track as inactive
+                                            obj.activeTrackIDs(min_div_ind) = [];
+
+                                        end
 
                                 end
-                                
-                                %Block invalid division events
-                                cost_to_divide(cost_to_divide < min(obj.DivisionScoreRange) | cost_to_divide > max(obj.DivisionScoreRange)) = Inf;
-                                
-                                [min_div_cost, min_div_ind] = min(cost_to_divide);
 
-                                if ~isinf(min_div_cost)
-                                    
-                                    %Split the mother track
-                                    [obj, daughterID] = splitTrack(obj, obj.activeTrackIDs(min_div_ind), frame);
-                                    
-                                    %Update mother
-                                    obj.tracks = setDaughterID(obj.tracks, ...
-                                        obj.activeTrackIDs(min_div_ind), ...
-                                        [newTrackID, daughterID]);
-                                    
-                                    %Update daughters
-                                    obj.tracks = setMotherID(obj.tracks, ...
-                                        newTrackID, ...
-                                        obj.activeTrackIDs(min_div_ind));
-                                    
-                                    obj.tracks = setMotherID(obj.tracks, ...
-                                        daughterID, ...
-                                        obj.activeTrackIDs(min_div_ind));
-                                                                                                                
-                                    %Set mother track as inactive
-                                    obj.activeTrackIDs(min_div_ind) = [];
-                                    
-                                end
-                                
                             end
                             
                         else
