@@ -43,7 +43,8 @@ classdef LAPLinker
     %   TrackDivision       - If true, division events will be tracked.
     %                         Otherwise, new tracks will be created for
     %                         new objects
-    %   DivisionType        - 'mammalian' or 'bacteria'
+    %   DivisionType        - 'mitosis' for mitosis detection. Anything
+    %                         else for a generic division detection 
     %   DivisionParameter   - Property to determine division
     %   DivisionScoreMetric - Function to compute division cost
     %   DivisionScoreRange  - Min and max values for a division to occur
@@ -101,7 +102,7 @@ classdef LAPLinker
         MaxTrackAge = 2;  %How many frames a track can go before tracking stops
         
         TrackDivision = false;  %If true, division events will be tracked
-        DivisionType = 'bacteria';
+        DivisionType = '';
         DivisionParameter = 'Centroid';  %Data fieldname used to track division
         DivisionScoreMetric = 'euclidean';  %Metric to compute division likelihood
         DivisionScoreRange = [0, 2];  %Valid division score range
@@ -294,6 +295,8 @@ classdef LAPLinker
                             
                             %Create new track
                             [obj, newTrackID] = startTrack(obj, frame, newData(rowsol(iSol)));
+
+
                             
                             %Test for division
                             if obj.TrackDivision
@@ -323,9 +326,20 @@ classdef LAPLinker
                                                 continue;
                                             end
 
+                                            if numel(obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames) < 2
+                                                continue;
+                                            end
+% 
+%                                             if newTrackID == 36 && obj.activeTrackIDs(acTr) == 14
+%                                                 keyboard
+% 
+%                                             end
+
+
+
                                             %Check if object exists at the
                                             %current frame
-                                            if obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frame(end) == frame
+                                            if obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(end) == frame
 
                                                 %Check if the position is
                                                 %within 30 px of current
@@ -334,6 +348,43 @@ classdef LAPLinker
 
                                                 if sqrt(sum((newData(rowsol(iSol)).(obj.DivisionParameter) - lastPos).^2)) < 30
                                                     %FOUND A CELL
+
+                                                    %Check if area is
+                                                    %similar
+                                                    areaDiff = abs(newData(rowsol(iSol)).Area - obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.Area{end})/newData(rowsol(iSol)).Area;
+                                                    if areaDiff <= 0.3
+
+                                                        %Check if divided
+                                                        %recently
+                                                        if isnan(obj.tracks.Tracks(obj.activeTrackIDs(acTr)).MotherID) || ...
+                                                                (frame - obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1)) < obj.MinFramesBetweenDiv
+
+                                                            %Division
+                                                            %detected
+
+                                                            %Split the mother track
+                                                            [obj, daughterID] = splitTrack(obj, obj.activeTrackIDs(acTr), frame);
+
+                                                            %Update mother
+                                                            obj.tracks = setDaughterID(obj.tracks, ...
+                                                                obj.activeTrackIDs(acTr), ...
+                                                                [newTrackID, daughterID]);
+
+                                                            %Update daughters
+                                                            obj.tracks = setMotherID(obj.tracks, ...
+                                                                newTrackID, ...
+                                                                obj.activeTrackIDs(acTr));
+
+                                                            obj.tracks = setMotherID(obj.tracks, ...
+                                                                daughterID, ...
+                                                                obj.activeTrackIDs(acTr));
+
+                                                            %Set mother track as inactive
+                                                            obj.activeTrackIDs(acTr) = [];
+                    
+                                                        end
+
+                                                    end
 
 
 
