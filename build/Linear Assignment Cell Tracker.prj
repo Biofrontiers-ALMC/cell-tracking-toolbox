@@ -7,7 +7,7 @@
     <param.summary>Cell tracking based on the linear assignment framework</param.summary>
     <param.description>This toolbox provides code to perform cell tracking using the linear assignment approach to link cells to tracks.</param.description>
     <param.screenshot>${PROJECT_ROOT}\tbxIcon.png</param.screenshot>
-    <param.version>2.1.1</param.version>
+    <param.version>2.1.0</param.version>
     <param.output>${PROJECT_ROOT}\Linear Assignment Cell Tracker.mltbx</param.output>
     <param.products.name />
     <param.products.id />
