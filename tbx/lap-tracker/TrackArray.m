@@ -243,8 +243,10 @@ classdef TrackArray
             trackIndex = findtrack(obj, trackID, true);
             
             %Update the track depending on the position of the frame(s)
-            for frame = frameIndex
- 
+            for iFrame = 1:numel(frameIndex)
+
+                frame = frameIndex(iFrame);
+
                 %Get current (existing) data fields
                 currDataFields = fieldnames(obj.Tracks(trackIndex).Data);
                 
@@ -263,7 +265,7 @@ classdef TrackArray
                             %Create new field and append empty matrices to
                             %the rest of the data
                             obj.Tracks(trackIndex).Data.(inputFields{iP}) = cell(1, numel(obj.Tracks(trackIndex).Frames));
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}){1} = trackData.(inputFields{iP});
+                            obj.Tracks(trackIndex).Data.(inputFields{iP}){1} = trackData.(inputFields{iP});     
                             
                         else
                             %Append new data to the start
@@ -321,16 +323,26 @@ classdef TrackArray
                     for iP = 1:numel(inputFields)
                         if ~ismember(inputFields{iP}, currDataFields)
                             
-                            %Create new field and append empty matrices to
-                            %the rest of the data
+                            %Create new field and add the data to the
+                            %correct frame
                             obj.Tracks(trackIndex).Data.(inputFields{iP}) = cell(1, numel(obj.Tracks(trackIndex).Frames));
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = trackData.(inputFields{iP});
+
+                            if numel(trackData) == 1
+                                obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = trackData.(inputFields{iP});
+                            else
+                                obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = trackData(iFrame).(inputFields{iP});
+                            end
                             
                         else
                             
-                            %Update data to the start
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = ...
-                                trackData.(inputFields{iP});
+                            %Update the existing data
+                            if numel(trackData) == 1
+                                obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = ...
+                                    trackData.(inputFields{iP});
+                            else
+                                obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = ...
+                                    trackData(iFrame).(inputFields{iP});
+                            end
                             
                         end
                     end
@@ -506,7 +518,7 @@ classdef TrackArray
                 for iP = 1:numel(datafields)
                     
                     %Check if data is numeric
-                    if all(cellfun(@isnumeric, obj.Tracks(trackIndex).Data.(datafields{iP})))
+                    if all(cellfun(@isnumeric, obj.Tracks(trackIndex).Data.(datafields{iP}))) || all(cellfun(@islogical, obj.Tracks(trackIndex).Data.(datafields{iP})))
                         
                         %Check if the number of elements in each column
                         %(excluding empty fields) is equal
