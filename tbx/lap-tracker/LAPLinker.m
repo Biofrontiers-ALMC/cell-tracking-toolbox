@@ -38,7 +38,7 @@ classdef LAPLinker
     %   LinkedBy            - Property to compute linking cost
     %   LinkCostMetric      - Function to compute linking cost
     %   LinkScoreRange      - Min and max values for linking objects
-    %   MaxTrackAge         - Maximum number of frames a track can go 
+    %   MaxTrackAge         - Maximum number of frames a track can go
     %                         without being updated
     %   TrackDivision       - If true, division events will be tracked.
     %                         Otherwise, new tracks will be created for
@@ -56,13 +56,13 @@ classdef LAPLinker
     %   updateMetadata - Sets file metadata options
     %   startTrack     - Start a new track
     %   updateTrack    - Modify or add values to an existing track
-    %   splitTrack     - Splits a track into two (used to handle 
+    %   splitTrack     - Splits a track into two (used to handle
     %                    division events)
     %
     %  Example:
     %  % This example shows only the outline of a typical program. To see
     %  % working examples, have a look at the 'demo' folder.
-    %  
+    %
     %  % Declare a new object
     %  L = LAPLinker;
     %
@@ -84,45 +84,45 @@ classdef LAPLinker
     %  tracks = L.tracks;
     %
     %
-    %  Credits: 
+    %  Credits:
     %    Ref: K. Jaqaman et al. Nature Methods 5, 695-702 (2008)
     %    JV algorithm: Yi Cao, Cranfield University, from Mathworks File
     %                  Exchange
     %    Author: Jian Wei Tay, University of Colorado Boulder
-    
+
     properties
-        
+
         Solver = 'lapjv';   %Algorithm to solve assignment problem
-        
+
         LinkedBy = 'Centroid';  %Data fieldname used to link cells
         LinkCostMetric = 'euclidean'; %Metric to compute linking costs
         LinkScoreRange = [0, 100];  %Valid linking score range
         MaxTrackAge = 2;  %How many frames a track can go before tracking stops
-        
+
         TrackDivision = false;  %If true, division events will be tracked
         DivisionParameter = 'Centroid';  %Data fieldname used to track division
         DivisionScoreMetric = 'euclidean';  %Metric to compute division likelihood
         DivisionScoreRange = [0, 2];  %Valid division score range
         MinFramesBetweenDiv = 10;  %Minimum number of frames between division events
-        
+
     end
-    
+
     properties (SetAccess = private)
-        
+
         %Data structure for track data
         tracks = TrackArray;
         activeTrackIDs = [];
-        
+
     end
-    
+
     properties (Dependent)
-        
+
         NumTracks  %Number of tracks
-        
+
     end
-    
+
     methods
-        
+
         function obj = LAPLinker(varargin)
             %LAPLINKER  Construct a new LAPLinker object
             %
@@ -132,16 +132,16 @@ classdef LAPLinker
             %  OBJ = LAPLINKER(S) will load settings in the struct S. S
             %  should be a struct with settings as fieldnames. Any
             %  unrecognized fields will be skipped without warning.
-            
+
             if numel(varargin) == 1
-                
-                if ~isstruct(varargin{1});
+
+                if ~isstruct(varargin{1})
                     error('LAPLinker:InvalidInput', ...
-                        'Expected input to be a struct.');                    
+                        'Expected input to be a struct.');
                 end
-                
+
                 inputFields = fieldnames(varargin{1});
-                                
+
                 C = metaclass(obj);
                 P = C.Properties;
                 for k = 1:length(P)
@@ -149,21 +149,21 @@ classdef LAPLinker
                         obj.(P{k}.Name) = varargin{1}.(P{k}.Name);
                     end
                 end
-                
+
             elseif numel(varargin) > 1
                 error('LAPLinker:TooManyInputArguments', ...
-                    'Too many input arguments. Expected one at most.');                
+                    'Too many input arguments. Expected one at most.');
             end
-            
+
         end
-        
+
         function numtracks = get.NumTracks(obj)
             %Returns number of tracks
-            
+
             numtracks = numel(obj.tracks);
-            
+
         end
-        
+
         function obj = assignToTrack(obj, frame, newData)
             %ASSIGNTOTRACK  Assign data to tracks
             %
@@ -198,61 +198,61 @@ classdef LAPLinker
             %  vector that contains the assignment of a row to a column.
             %
             %  See also: regionprops
-            
+
             %If data structure is empty, then create new tracks
             if numel(obj.tracks) == 0
-                
+
                 obj = startTrack(obj, frame, newData);
-                
+
             else
-                
+
                 %--- Compute cost matrix ---%
-                
+
                 %-- Linking costs (top left) --%
                 cost_to_link = zeros(numel(obj.activeTrackIDs), numel(newData));
-                
+
                 newLinkData = {newData.(obj.LinkedBy)};
-                
+
                 for acTr = 1:numel(obj.activeTrackIDs)
                     lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.LinkedBy){end};
                     cost_to_link(acTr, :) = LAPLinker.computecost(lastTrackData, newLinkData, obj.LinkCostMetric);
                 end
                 cost_to_link(cost_to_link < min(obj.LinkScoreRange) | cost_to_link > max(obj.LinkScoreRange)) = Inf;
-                
+
                 %-- Non-linking cost (top right) --%
                 altCost = 1.05 * max(cost_to_link(~isinf(cost_to_link)));
-                
+
                 if isempty(altCost)
                     %Likely reason, there were no valid links at all
                     %(registration/segmentation issue?)
-                    altCost = 2e8;                    
+                    altCost = 2e8;
                 end
-                
+
                 cost_no_links = inf(numel(obj.activeTrackIDs));
                 cost_no_links(1:(size(cost_no_links, 1) + 1):end) = altCost;
 
                 %-- Cost to start new tracks (bottom left) --%
                 cost_new_track = inf(numel(newLinkData));
                 cost_new_track(1:(size(cost_new_track, 1) + 1):end) = altCost;
-                
+
                 %-- Auxiliary (bottom right) --%
                 cost_aux = cost_to_link';
                 cost_aux(cost_aux < Inf) = min(cost_to_link(cost_to_link < Inf));
-                
+
                 %Concatenate matrix
                 cost = [cost_to_link, cost_no_links; cost_new_track, cost_aux];
-                
+
                 %Solve the assignment
                 switch lower(obj.Solver)
-                    
+
                     case {'lapjv', 'jv'}
                         rowsol = LAPLinker.lapjv(cost);
-                        
+
                     case {'munkres', 'hungarian'}
                         rowsol = LAPLinker.munkres(cost);
-                    
+
                     otherwise
-                        if exist(obj.Solver, 'file')            
+                        if exist(obj.Solver, 'file')
                             %Call external solver
                             eval(['rowsol = ', obj.Solver, ';'])
                         else
@@ -260,16 +260,16 @@ classdef LAPLinker
                                 '''%s'' is not a built-in solver and ''%s.m'' could not be found.', ...
                                 obj.Solver, obj.Solver);
                         end
-                       
+
                 end
-                                
+
                 chkStop = [];
-                
+
                 %Handle assignments
                 for iSol = 1:numel(rowsol)
-                    
+
                     if iSol <= numel(obj.activeTrackIDs)
-                        
+
                         if rowsol(iSol) > 0 && rowsol(iSol) <= numel(newData)
                             %Assign new data to existing track
                             obj.tracks = updateTrack(obj.tracks, obj.activeTrackIDs(iSol), frame, newData(rowsol(iSol)));
@@ -277,119 +277,160 @@ classdef LAPLinker
                             %Compute the age and see if it is time to stop
                             %tracking
                             chkStop(end + 1) = obj.activeTrackIDs(iSol);
-%                             age = frame - obj.tracks.Tracks(obj.activeTrackIDs(iSol)).Frames(end);
-%                             
-%                             if age > obj.MaxTrackAge
-%                                 
-%                                 obj.activeTrackIDs(iSol) = [];
-%                                 
-%                             end
+                            %                             age = frame - obj.tracks.Tracks(obj.activeTrackIDs(iSol)).Frames(end);
+                            %
+                            %                             if age > obj.MaxTrackAge
+                            %
+                            %                                 obj.activeTrackIDs(iSol) = [];
+                            %
+                            %                             end
                         end
-                        
+
                     else
-                        
+
                         if rowsol(iSol) > 0 && rowsol(iSol) <= numel(newData)
-                            
+
                             %Create new track
                             [obj, newTrackID] = startTrack(obj, frame, newData(rowsol(iSol)));
-                            
+
                             %Test for division
                             if obj.TrackDivision
-                                
+
                                 cost_to_divide = Inf(numel(obj.activeTrackIDs), 1);
-                                
+
                                 %Compute the division cost matrix
                                 for acTr = 1:numel(obj.activeTrackIDs)
-                                    
+
                                     if obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1) >= frame || ...
                                             obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(end) < frame
-                                        
+
                                         %Check if the track is a valid
                                         %candidate
                                         cost_to_divide(acTr) = Inf;
-                                        
+
                                     elseif ~isnan(obj.tracks.Tracks(obj.activeTrackIDs(acTr)).MotherID) && ...
                                             (frame - obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Frames(1)) < obj.MinFramesBetweenDiv
-                                        
+
                                         %Don't let cells divide too quickly
                                         cost_to_divide(acTr) = Inf;
-                                        
+
                                     else
-                                        
+
                                         %Check data with previous frame
-                                        lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.DivisionParameter){end - 1};
-                                        cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
-                                        
+                                        if ~strcmpi(obj.DivisionParameter, 'mitosis')
+                                            lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.DivisionParameter){end - 1};
+                                            cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
+                                        else
+
+                                            %Hack to include distance and
+                                            %area in division cost
+                                            %calculation for mammalian
+                                            %cells
+
+                                            %Check if there is a track
+                                            %nearby that could serve as a
+                                            %mother cell
+                                            lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.Centroid{end - 1};
+                                            distance = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).Centroid}, 'euclidean');
+
+                                            %Hard code: 50 px max distance
+                                            if distance > 50
+                                                distance = Inf;
+                                            end
+
+                                            %Check if current size is
+                                            %similar to this cell
+                                            lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.Area{end};
+                                            areaDiff = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).Area}, 'ratio');
+
+                                            %Hard code: Max difference in
+                                            %size = 60%
+                                            if areaDiff > 0.25
+                                                areaDiff = Inf;
+                                            end
+
+                                            % if frame == 2 && acTr == 13
+                                            %     keyboard
+                                            % end
+                                            
+                                            cost_to_divide(acTr) = distance + 10 * areaDiff;
+
+                                        end
+
                                     end
 
                                 end
-                                
+
+                                % if frame == 2
+                                %     keyboard
+                                % end
+
                                 %Block invalid division events
                                 cost_to_divide(cost_to_divide < min(obj.DivisionScoreRange) | cost_to_divide > max(obj.DivisionScoreRange)) = Inf;
-                                
+
                                 [min_div_cost, min_div_ind] = min(cost_to_divide);
 
                                 if ~isinf(min_div_cost)
-                                    
+
                                     %Split the mother track
                                     [obj, daughterID] = splitTrack(obj, obj.activeTrackIDs(min_div_ind), frame);
-                                    
+
                                     %Update mother
                                     obj.tracks = setDaughterID(obj.tracks, ...
                                         obj.activeTrackIDs(min_div_ind), ...
                                         [newTrackID, daughterID]);
-                                    
+
                                     %Update daughters
                                     obj.tracks = setMotherID(obj.tracks, ...
                                         newTrackID, ...
                                         obj.activeTrackIDs(min_div_ind));
-                                    
+
                                     obj.tracks = setMotherID(obj.tracks, ...
                                         daughterID, ...
                                         obj.activeTrackIDs(min_div_ind));
-                                                                                                                
+
                                     %Set mother track as inactive
                                     obj.activeTrackIDs(min_div_ind) = [];
-                                    
+
                                 end
-                                
+
                             end
-                            
+
                         else
-                            
+
                             %Do nothing
-                            
+
                         end
-                        
+
                     end
-                    
+
                 end
-                
+
                 for iChk = 1:numel(chkStop)
-                    
+
                     age = frame - obj.tracks.Tracks(chkStop(iChk)).Frames(end);
-                    
+
                     if age > obj.MaxTrackAge
-                        
+
                         obj.activeTrackIDs(obj.activeTrackIDs == chkStop(iChk)) = [];
                         %obj.activeTrackIDs(iSol) = [];
-                        
+
                     end
                 end
             end
-            
+
         end
-        
+
         function [obj, newTrackID] = splitTrack(obj, trackID, frameToSplit)
-            
+
             %Split the tracks
             [obj.tracks, newTrackID] = splitTrack(obj.tracks, trackID, frameToSplit);
-            
+
             %Update the active track list
             obj.activeTrackIDs(end + 1) = newTrackID;
-            
+
         end
-        
+
         function obj = updateMetadata(obj, varargin)
             %UPDATEMETADATA  Update the metadata struct
             %
@@ -407,16 +448,16 @@ classdef LAPLinker
             %  Note: Property names must be allowed by MATLAB, i.e. must
             %  start with a letter and contain no special characters apart
             %  from underscore.
-                        
+
             if rem(numel(varargin), 2) ~= 0
                 error('LAPLinker:updateMetadata:UnmatchedParamValuePair', ...
-                    'Expected input should be matched parameter/value pairs.');                
+                    'Expected input should be matched parameter/value pairs.');
             end
-            
+
             obj.tracks = setFileMetadata(obj.tracks, varargin{:});
-            
+
         end
-        
+
         function exportsettings(obj, varargin)
             %EXPORTSETTINGS  Write tracking properties to text file
             %
@@ -429,74 +470,74 @@ classdef LAPLinker
             %  settings to the specified FILE.
             %
             %  See also: LAPLinker/importsettings
-            
+
             if isempty(varargin)
-                
+
                 [file, fpath] = uiputfile({'*.txt', '*.txt (Text file)'}, ...
                     'Select output file');
-                
+
                 if isequal(file, 0) || isequal(fpath, 0)
                     return;
                 end
-                
+
                 fileOut = fullfile(fpath, file);
-                
+
             else
-                
-                fileOut = varargin{1};                
-                
+
+                fileOut = varargin{1};
+
             end
-                        
+
             %Get a list of object properties
             props = properties(obj);
-            
+
             %Exclude data properties
             props(ismember(props, {'tracks', 'isTrackActive', 'NumTracks'})) = [];
-            
+
             fid = fopen(fileOut, 'w');
-            
+
             if fid == -1
                 error('LAPLinker:exportsettings:CouldNotOpenFileToWrite', ...
                     'Could not open file %s to write.', ...
                     fileout);
             end
-            
+
             fprintf(fid, '%% %s\n', datestr(now));
-            
+
             for iP = 1:numel(props)
-                
+
                 switch lower(class(obj.(props{iP})))
-                    
+
                     case 'char'
-                
+
                         settingVal = sprintf('''%s''', obj.(props{iP}));
-                        
+
                     case 'logical'
-                        
+
                         if obj.(props{iP})
-                            
+
                             settingVal = 'true';
-                            
+
                         else
-                            
+
                             settingVal = 'false';
-                            
+
                         end
-                        
+
                     case 'double'
-                        
+
                         settingVal = mat2str(obj.(props{iP}));
-                        
+
                 end
-                
+
                 fprintf(fid, '%s: %s\n', props{iP}, settingVal);
-                
+
             end
-            
+
             fclose(fid);
-            
+
         end
-        
+
         function obj = importsettings(obj, varargin)
             %IMPORTSETTINGS  Import settings from text file
             %
@@ -509,82 +550,82 @@ classdef LAPLinker
             %  settings from a specified FILE.
             %
             %  See also: LAPLinker/EXPORTSETTINGS
-            
+
             if isempty(varargin)
-                
+
                 [file, fpath] = uigetfile({'*.txt', '*.txt (Text file)'}, ...
                     'Select file');
-                
+
                 if isequal(file, 0) || isequal(fpath, 0)
                     return;
                 end
-                
+
                 fileIn = fullfile(fpath, file);
-                
+
             else
-                
+
                 if ~exist(varargin{1}, 'file')
                     error('LAPLinker:importsettings:InvalidFile', ...
                         '%s was not found.', ...
-                        varargin{1});                    
+                        varargin{1});
                 end
-                
-                fileIn = varargin{1};                
-                
+
+                fileIn = varargin{1};
+
             end
-            
+
             fid = fopen(fileIn, 'r');
-            
+
             if fid == -1
                 error('LAPLinker:importsettings:CouldNotOpenFileToRead', ...
                     'Could not open file %s to read.', ...
                     fileout);
             end
-            
+
             %Get a list of valid object properties
             props = properties(obj);
-            
+
             %Exclude data properties
             props(ismember(props, {'tracks', 'isTrackActive', 'NumTracks'})) = [];
-            
+
             while ~feof(fid)
-                
+
                 currLine = fgetl(fid);
-                
+
                 if strcmpi(currLine(1), '%')
                     %Skip comments
-                    
+
                     %TODO SKIP NEWLINES
-                    
+
                 else
-                    
+
                     input = strsplit(currLine, ':');
-                    
+
                     if ismember(input{1}, props)
                         obj.(input{1}) = eval(input{2});
-                        
+
                     else
-                        
+
                         %Skip
-                    
+
                     end
-                    
+
                 end
-                
-                
-                
+
+
+
             end
-            
-            
+
+
             fclose(fid);
-            
-            
+
+
         end
-        
+
         function [obj, newTrackID] = startTrack(obj, frame, dataIn)
             %OBJ = NEWTRACK(OBJ, FIRSTFRAME, DATA) creates a new track
             %entry in the data structure. FIRSTFRAME should be the frame
-            %number of the first frame for the track. 
+            %number of the first frame for the track.
             %
             %DATA should be a struct with fields containing the measured
             %properties for the track (e.g. similar to the output of
@@ -595,15 +636,15 @@ classdef LAPLinker
             %'tracks' property of the object. Tracks will always contain
             %the fields 'Frame', 'MotherInd', and 'DaughterInd'. New tracks
             %cannot have 'Frame' as a data property.
-            
+
             %Create new track
             [obj.tracks, newTrackID] = addTrack(obj.tracks, frame, dataIn);
-            
+
             %Update the active track list
             obj.activeTrackIDs((end + 1):(end + numel(newTrackID))) = newTrackID;
-            
+
         end
-        
+
         function obj = updateTrack(obj, trackInd, frames, dataIn)
             %UPDATETRACK  Modify track data
             %
@@ -618,23 +659,23 @@ classdef LAPLinker
             %  necessary.
             %
             %  Examples:
-            %  %Update the 'Centroid' field in frame 3 of track 5 
+            %  %Update the 'Centroid' field in frame 3 of track 5
             %  OBJ = UPDATETRACK(OBJ, 5, 3, struct('Centroid', [10, 3]));
-            
+
             obj.tracks = updateTrack(obj.tracks, trackInd, frames, dataIn);
-            
+
         end
-        
+
         function track = getTrack(obj, trackID)
-            
+
             track = getTrack(obj.tracks, trackID);
-            
+
         end
 
     end
-    
+
     methods (Access = private, Hidden = true, Static)
-        
+
         function cost = computecost(lastTrackData, newData, method)
             %COMPUTECOST  Compute the cost to link tracks
             %
@@ -647,44 +688,51 @@ classdef LAPLinker
             %   'euclidean' - sqrt(sum((A - D).^2))
             %   'pxintersect' - Number of overlapping pixels (the input
             %   data should have 'PixelIdxList')
-            
+
             switch lower(method)
-                
+
                 case 'euclidean'
-                    
+
                     %Number of elements in lastTrackData must match number
                     %of columns in newData
                     if numel(newData{1}) ~= numel(lastTrackData)
                         error('LAPLinker:computecost:EuclideanNumParamMismatch', ...
                             'For euclidean distance, the number of parameters for the new data must match the number of parameters of the track.');
                     end
-                    
+
                     %Convert the cell into a matrix
                     newData = cell2mat(newData');
-                    
+
                     cost = sqrt(sum((newData - lastTrackData).^2, 2))';
-                    
+
                 case 'pxintersect'
-                    
+
                     cost = 1:numel(newData);
                     for ii = 1:numel(newData)
                         cost(ii) = numel(union(newData{ii}, lastTrackData)) / ...
                             numel(intersect(newData{ii}, lastTrackData));
                     end
-                    
+
                     %cost = cellfun(@(x) numel(union(x, lastTrackData))/numel(intersect(x, lastTrackData)), newData, 'UniformOutput', true);
-                    
+
+                case 'ratio'
+
+                    cost = 1:numel(newData);
+                    for ii = 1:numel(newData)
+                        cost(ii) = abs(lastTrackData - newData{ii})/newData{ii};
+                    end
+
                 otherwise
-                    
+
                     %Call custom function (must be on path)
                     %Function pattern = func(lastTrackData, newData)
-                    
+
                     cost = eval(sprintf('%s(lastTrackData, newData)', method));
-                    
+
             end
-                        
+
         end
-        
+
         function [rowsol, mincost, unassigned_cols] = munkres(costMatrix)
             %MUNKRES  Munkres (Hungarian) linear assignment
             %
@@ -706,48 +754,48 @@ classdef LAPLinker
             %
             %  This code is based on the algorithm described at:
             %  http://csclab.murraystate.edu/bob.pilgrim/445/munkres.html
-            
+
             %Get the size of the matrix
             [nORows, nOCols] = size(costMatrix);
-            
+
             %Check for rows and cols which are all infinity, then remove them
             validRows = ~all(costMatrix == Inf,2);
             validCols = ~all(costMatrix == Inf,1);
-            
+
             nRows = sum(validRows);
             nCols = sum(validCols);
-            
+
             nn = max(nRows,nCols);
-            
+
             if nn == 0
                 error('Invalid cost matrix: Cannot be all Inf.')
             elseif any(isnan(costMatrix(:))) || any(costMatrix(:) < 0)
                 error('Invalid cost matrix: Expected costs to be all positive numbers.')
             end
-            
+
             %Make a new matrix
             tempCostMatrix = ones(nn) .* (10 * max(max(costMatrix(costMatrix ~= Inf))));
             tempCostMatrix(1:nRows,1:nCols) = costMatrix(validRows,validCols);
-            
+
             tempCostMatrix(tempCostMatrix == Inf) = realmax;
-            
+
             %Get the minimum values of each row
             rowMin = min(tempCostMatrix,[],2);
-            
+
             %Subtract the elements in each row with the corresponding minima
             redMat = bsxfun(@minus,tempCostMatrix,rowMin);
-            
+
             %Mask matrix (0 = not a zero, 1 = starred, 2 = primed)
             mask = zeros(nn);
-            
+
             %Vectors of column and row numbers
             rowNum = 1:nn;
             colNum = rowNum;
-            
+
             %Row and column covers (1 = covered, 0 = uncovered)
             rowCover = zeros(1,nn);
             colCover = rowCover;
-            
+
             %Search for unique zeros (i.e. only one starred zero should exist in each
             %row and column
             for iRow = rowNum(any(redMat,2) == 0)
@@ -759,13 +807,13 @@ classdef LAPLinker
                     end
                 end
             end
-            
+
             %Clear the row cover
             rowCover(:) = 0;
-            
+
             %The termination condition is when each column has a single starred zero
             while ~all(colCover)
-                
+
                 %---Step 4: Prime an uncovered zero---%
                 %Find a non-covered zero and prime it.
                 %If there is no starred zero in the row containing this primed zero,
@@ -774,109 +822,109 @@ classdef LAPLinker
                 %starred zero.
                 %Continue until there are no uncovered zeros left. Then get the minimum
                 %value and proceed to step 6.
-                
+
                 stop = false;
-                
+
                 %Find an uncovered zero
                 for iRow = rowNum( (any(redMat == 0,2))' & (rowCover == 0) )
                     for iCol = colNum(redMat(iRow,:) == 0)
-                        
+
                         if (redMat(iRow,iCol) == 0) && (rowCover(iRow) == 0) && (colCover(iCol) == 0)
                             mask(iRow,iCol) = 2;    %Prime the zero
-                            
+
                             if any(mask(iRow,:) == 1)
                                 rowCover(iRow) = 1;
                                 colCover(mask(iRow,:) == 1) = 0;
                             else
-                                
+
                                 %Step 5: Augment path algorithm
                                 currCol = iCol; %Initial search column
                                 storePath = [iRow, iCol];
-                                
+
                                 %Test if there is a starred zero in the current column
                                 while any(mask(:,currCol) == 1)
                                     %Get the (row) index of the starred zero
                                     currRow = find(mask(:,currCol) == 1);
-                                    
+
                                     storePath = [storePath; currRow, currCol];
-                                    
+
                                     %Find the primed zero in this row (there will
                                     %always be one)
                                     currCol = find(mask(currRow,:) == 2);
-                                    
+
                                     storePath = [storePath; currRow, currCol];
                                 end
-                                
+
                                 %Unstar each starred zero, star each primed zero in the
                                 %searched path
                                 indMask = sub2ind([nn,nn],storePath(:,1),storePath(:,2));
                                 mask(indMask) = mask(indMask) - 1;
-                                
+
                                 %Erase all primes
                                 mask(mask == 2) = 0;
-                                
+
                                 %Uncover all rows
                                 rowCover(:) = 0;
-                                
+
                                 %Step 3: Cover the columns with stars
                                 colCover(:) = any((mask == 1),1);
-                                
+
                                 stop = true;
                                 break;
                             end
                         end
-                        
+
                         %---Step 6---
-                        
+
                         %Find the minimum uncovered value
                         minUncVal = min(min(redMat(rowCover == 0,colCover== 0)));
-                        
+
                         %Add the value to every element of each covered row
                         redMat(rowCover == 1,:) = redMat(rowCover == 1,:) + minUncVal;
-                        
+
                         %Subtract it from every element of each uncovered column
                         redMat(:,colCover == 0) = redMat(:,colCover == 0) - minUncVal;
                     end
-                    
+
                     if (stop)
                         break;
                     end
                 end
-                
+
             end
-            
+
             %Assign the outputs
             rowsol = zeros(nORows,1);
             mincost = 0;
-            
+
             unassigned_cols = 1:nCols;
-            
+
             validRowNum = 1:nORows;
             validRowNum(~validRows) = [];
-            
+
             validColNum = 1:nOCols;
             validColNum(~validCols) = [];
-            
+
             %Only assign valid workers
             for iRow = 1:numel(validRowNum)
-                
+
                 assigned_col = colNum(mask(iRow,:) == 1);
-                
+
                 %Only assign valid tasks
                 if assigned_col > numel(validColNum)
                     %Assign the output
                     rowsol(validRowNum(iRow)) = 0;
                 else
                     rowsol(validRowNum(iRow)) = validColNum(assigned_col);
-                    
+
                     %         %Calculate the optimized (minimized) cost
                     mincost = mincost + costMatrix(validRowNum(iRow),validColNum(assigned_col));
-                    
+
                     unassigned_cols(unassigned_cols == assigned_col) = [];
                 end
             end
         end
-        
+
         function [rowsol, mincost, v, u, costMat] = lapjv(costMat,resolution)
             % LAPJV  Jonker-Volgenant Algorithm for Linear Assignment Problem.
             %
@@ -944,12 +992,12 @@ classdef LAPLinker
                     disp(norm(a-a1))
                     disp(b-b)
             %}
-            
+
             if nargin<2
                 maxcost=min(1e16,max(max(costMat)));
                 resolution=eps(maxcost);
             end
-            
+
             % Prepare working data
             [rdim,cdim] = size(costMat);
             M=min(min(costMat));
@@ -960,16 +1008,16 @@ classdef LAPLinker
             else
                 swapf=false;
             end
-            
+
             dim=cdim;
             costMat = [costMat;2*M+zeros(cdim-rdim,cdim)];
             costMat(costMat~=costMat)=Inf;
             maxcost=max(costMat(costMat<Inf))*dim+1;
-            
+
             if isempty(maxcost)
                 maxcost = Inf;
             end
-            
+
             costMat(costMat==Inf)=maxcost;
             % free = zeros(dim,1);      % list of unssigned rows
             % colist = 1:dim;         % list of columns to be scaed in various ways
@@ -978,11 +1026,11 @@ classdef LAPLinker
             v = zeros(1,dim);         % dual variables, column reduction numbers.
             rowsol = zeros(1,dim)-1;  % column assigned to row in solution
             colsol = zeros(dim,1)-1;  % row assigned to column in solution
-            
+
             numfree=0;
             free = zeros(dim,1);      % list of unssigned rows
             matches = zeros(dim,1);   % counts how many times a row could be assigned.
-            
+
             % The Initilization Phase
             % column reduction
             for j=dim:-1:1 % reverse order gives better results
@@ -1002,7 +1050,7 @@ classdef LAPLinker
                 end
                 matches(imin)=matches(imin)+1;
             end
-            
+
             % Reduction transfer from unassigned to assigned rows
             for i=1:dim
                 if ~matches(i)      % fill list of unaasigned 'free' rows.
@@ -1017,7 +1065,7 @@ classdef LAPLinker
                     end
                 end
             end
-            
+
             % Augmenting reduction of unassigned rows
             loopcnt = 0;
             while loopcnt < 2
@@ -1065,7 +1113,7 @@ classdef LAPLinker
                     end
                 end
             end
-            
+
             % Augmentation Phase
             % augment solution for each free rows
             for f=1:numfree
@@ -1163,7 +1211,7 @@ classdef LAPLinker
                     end
                 end
             end
-            
+
             rowsol = rowsol(1:rdim);
             u=diag(costMat(:,rowsol))-v(rowsol)';
             u=u(1:rdim);
@@ -1171,20 +1219,20 @@ classdef LAPLinker
             mincost = sum(u)+sum(v(rowsol));
             costMat=costMat(1:rdim,1:cdim);
             costMat = costMat - u(:,ones(1,cdim)) - v(ones(rdim,1),:);
-            
+
             if swapf
                 costMat = costMat';
                 t=u';
                 u=v';
                 v=t;
             end
-            
+
             if mincost>maxcost
                 mincost=Inf;
             end
-            
+
         end
-        
+
     end
-        
+
 end

@@ -179,6 +179,112 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
         end  
         
+        function updateTrack_dataIsCell_append(testCase)
+            %Test that cell data (i.e. if multiple PixelIdxList) is added
+            %correctly.
+
+            array = TrackArray;
+
+            %Add some data
+            testdata.Length = 10;
+            testdata.PxIdxList = {[10, 20 30], [40, 50]};
+            testdata.Color = 'Blue';
+
+            %Add data to frame 1
+            array = addTrack(array, 1, testdata);
+
+            %Add data to frame 2
+            testdata2.Length = 100;
+            testdata2.PxIdxList = {[30 10], [1 5]};
+            testdata2.Color = 'Yellow';
+
+            array = updateTrack(array, 1, 2, testdata2);
+
+            %Expected results
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', [1 2]);
+            expectedData.Data.Length = {10, 100};
+            expectedData.Data.PxIdxList = {{[10, 20 30], [40, 50]}, {[30 10], [1 5]}};
+            expectedData.Data.Color = {'Blue', 'Yellow'};
+
+            testCase.assertEqual(array.Tracks(1), expectedData);
+
+        end
+
+        function updateTrack_dataIsCell_prepend(testCase)
+            %Test that cell data (i.e. if multiple PixelIdxList) is added
+            %correctly if added before a frame
+
+            array = TrackArray;
+
+            %Add some data
+            testdata.Length = 10;
+            testdata.PxIdxList = {[10, 20 30], [40, 50]};
+            testdata.Color = 'Blue';
+
+            %Add data to frame 2
+            array = addTrack(array, 2, testdata);
+
+            %Add data to frame 1
+            testdata2.Length = 100;
+            testdata2.PxIdxList = {[30 10], [1 5]};
+            testdata2.Color = 'Yellow';
+
+            array = updateTrack(array, 1, 1, testdata2);
+
+            %Expected results
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', [1 2]);
+            expectedData.Data.Length = {100, 10};
+            expectedData.Data.PxIdxList = {{[30 10], [1 5]}, {[10, 20 30], [40, 50]}};
+            expectedData.Data.Color = {'Yellow', 'Blue'};
+
+            testCase.assertEqual(array.Tracks(1), expectedData);
+
+        end
+
+        function updateTrack_dataIsCell_update(testCase)
+            %Test that cell data (i.e. if multiple PixelIdxList) is added
+            %correctly if updating an existing frame
+
+            array = TrackArray;
+
+            %Add some data
+            testdata.Length = 10;
+            testdata.PxIdxList = {[10, 20 30], [40, 50]};
+            testdata.Color = 'Blue';
+
+            %Add data to frame 2
+            array = addTrack(array, 2, testdata);
+
+            %Update data in frame 2
+            testdata2.Length = 100;
+            testdata2.PxIdxList = {[30 10], [1 5]};
+            testdata2.Color = 'Yellow';
+
+            array = updateTrack(array, 1, 2, testdata2);
+
+            %Expected results
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', 2);
+            expectedData.Data.Length = {100};
+            expectedData.Data.PxIdxList = {{[30 10], [1 5]}};
+            expectedData.Data.Color = {'Yellow'};
+
+            testCase.assertEqual(array.Tracks(1), expectedData);
+
+        end
+
+
         function deleteTrack_deleteExisting(testCase)
             
             array = TrackArray;
