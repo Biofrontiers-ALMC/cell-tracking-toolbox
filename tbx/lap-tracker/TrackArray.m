@@ -244,6 +244,8 @@ classdef TrackArray
             
             %Update the track depending on the position of the frame(s)
             for frame = frameIndex
+
+                dataIdx = find(frame == frameIndex, 1, 'first');
  
                 %Get current (existing) data fields
                 currDataFields = fieldnames(obj.Tracks(trackIndex).Data);
@@ -263,12 +265,12 @@ classdef TrackArray
                             %Create new field and append empty matrices to
                             %the rest of the data
                             obj.Tracks(trackIndex).Data.(inputFields{iP}) = cell(1, numel(obj.Tracks(trackIndex).Frames));
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}){1} = trackData.(inputFields{iP});
+                            obj.Tracks(trackIndex).Data.(inputFields{iP}){1} = trackData(dataIdx).(inputFields{iP});
                             
                         else
                             %Append new data to the start
                             obj.Tracks(trackIndex).Data.(currDataFields{iP}) = ...
-                                [{trackData.(inputFields{iP})}, obj.Tracks(trackIndex).Data.(inputFields{iP})];
+                                [{trackData(dataIdx).(inputFields{iP})}, obj.Tracks(trackIndex).Data.(inputFields{iP})];
                         end
                     end
                     
@@ -292,13 +294,13 @@ classdef TrackArray
                             %Create new field and append empty matrices to
                             %the rest of the data
                             obj.Tracks(trackIndex).Data.(inputFields{iP}) = cell(1, numel(obj.Tracks(trackIndex).Frames));
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}){end} = trackData.(inputFields{iP});
+                            obj.Tracks(trackIndex).Data.(inputFields{iP}){end} = trackData(dataIdx).(inputFields{iP});
                             
                         else
                             
                             %Append new data to the end
                             obj.Tracks(trackIndex).Data.(inputFields{iP}){end + 1} = ...
-                                trackData.(inputFields{iP});
+                                trackData(dataIdx).(inputFields{iP});
                             
                         end
                     end
@@ -324,13 +326,13 @@ classdef TrackArray
                             %Create new field and append empty matrices to
                             %the rest of the data
                             obj.Tracks(trackIndex).Data.(inputFields{iP}) = cell(1, numel(obj.Tracks(trackIndex).Frames));
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = trackData.(inputFields{iP});
+                            obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = trackData(dataIdx).(inputFields{iP});
                             
                         else
                             
                             %Update data to the start
                             obj.Tracks(trackIndex).Data.(inputFields{iP}){frameIdx} = ...
-                                trackData.(inputFields{iP});
+                                trackData(dataIdx).(inputFields{iP});
                             
                         end
                     end
@@ -564,6 +566,39 @@ classdef TrackArray
             
         end
         
+        function obj = joinTrack(obj, trackID_one, trackID_two)
+            %JOINTRACK  Join two tracks
+            %
+            %  OBJ = JOINTRACK(OBJ, TRACK1_ID, TRACK2_ID) joins the data
+            %  from TRACK2_ID into TRACK1_ID. TRACK2 will be deleted after
+            %  joining.
+
+            trIdx1 = findtrack(obj, trackID_one, true);
+            trIdx2 = findtrack(obj, trackID_two, true);
+
+            %Check if tracks overlap in frames
+            if any(ismember( obj.Tracks(trIdx1).Frames, obj.Tracks(trIdx2).Frames))
+                error('TrackArray:joinTrack:OverlappingFrames', ...
+                    'Tracks %d and %d have information in the same frame.', ...
+                    trackID_one, trackID_two);
+            end
+
+            dataFields = fieldnames(obj.Tracks(trIdx2).Data);
+            trackData = [];
+            for iT = 1:numel(obj.Tracks(trIdx2).Frames)
+                for iP = 1:numel(dataFields)
+                    if iT == 1
+                        trackData.(dataFields{iP}) = obj.Tracks(trIdx2).Data.(dataFields{iP}){iT};
+                    else
+                        trackData(iT).(dataFields{iP}) = obj.Tracks(trIdx2).Data.(dataFields{iP}){iT};
+                    end
+                end
+            end
+
+            obj = updateTrack(obj, trackID_one, obj.Tracks(trIdx2).Frames, trackData);
+            obj = deleteTrack(obj, trackID_two);
+
+        end
         
         %--- Traversal functions ---%
         function IDout = traverse(obj, rootTrackID, varargin)

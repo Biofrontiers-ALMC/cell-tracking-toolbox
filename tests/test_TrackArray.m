@@ -179,6 +179,39 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
         end  
         
+        function updateTrack_multipleFrames(testCase)
+
+            array = TrackArray;
+
+            %Define input data
+            data.Length = 10;
+            array = addTrack(array, 1, data);
+
+            data.Length = 20;
+            array = updateTrack(array, 1, 2, data);
+
+            data.Length = 30;
+            array = updateTrack(array, 1, 3, data);
+
+            %Create new data
+            newData.Length = 40;
+            newData(2).Length = 50;
+            newData(3).Length = 60;
+
+            array = updateTrack(array, 1, [4, 5, 6], newData);
+
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', [1 2 3 4 5 6]);
+            expectedData.Data.Length = {10, 20, 30, 40, 50, 60};
+
+            testCase.assertEqual(array.Tracks(1), expectedData);
+
+        end
+
+
         function updateTrack_dataIsCell_append(testCase)
             %Test that cell data (i.e. if multiple PixelIdxList) is added
             %correctly.
@@ -602,6 +635,45 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
         end
         
+        function joinTrack (testCase)
+
+            array = TrackArray;
+
+            %Define input data
+            data.Length = 10;
+            array = addTrack(array, 1, data);
+                
+            data.Length = 20;
+            array = updateTrack(array, 1, 2, data);
+            
+            data.Length = 30;
+            array = updateTrack(array, 1, 3, data);
+
+            %Define input data
+            data.Length = 40;
+            array = addTrack(array, 4, data);
+
+            data.Length = 50;
+            array = updateTrack(array, 2, 5, data);
+
+            data.Length = 60;
+            array = updateTrack(array, 2, 6, data);
+
+            array = joinTrack(array, 1, 2);
+
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', [1 2 3 4 5 6]);
+            expectedData.Data.Length = {10, 20, 30, 40, 50, 60};
+
+            testCase.assertEqual(array.Tracks(1), expectedData);
+            testCase.assertEqual(numel(array.Tracks), 1);
+
+
+
+        end
         
         
         
