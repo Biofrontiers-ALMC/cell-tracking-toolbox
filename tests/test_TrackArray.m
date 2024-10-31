@@ -94,6 +94,35 @@ classdef test_TrackArray < matlab.unittest.TestCase
             
         end
         
+        function updateTrack_appendToStart_frameSkip(testCase)
+            %Update by adding frame to the start
+            %This test defines the expected output structure.
+            
+            array = TrackArray;
+            
+            %Add some data
+            testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], 'Classification', 'Blue');
+            array = addTrack(array, 5, testdata);
+            
+            %Update the data
+            testdata2 = struct('Length', 100, 'PxIdxList', [30 10], 'Color', 'Yellow');
+            array = updateTrack(array, 1, 1, testdata2);
+            
+            
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', [1 2 3 4 5]);
+            expectedData.Data.Length = {100, [], [], [], 10};
+            expectedData.Data.PxIdxList = {[30 10], [], [], [], [10, 20 30]};
+            expectedData.Data.Classification = {[], [], [], [], 'Blue'};
+            expectedData.Data.Color = {'Yellow', [], [], [], []};
+                
+            testCase.assertEqual(array.Tracks(1), expectedData);
+            
+        end
+
         function updateTrack_appendToEnd(testCase)
             %Update by adding frame to the end
             %This test defines the expected output structure.
@@ -122,6 +151,35 @@ classdef test_TrackArray < matlab.unittest.TestCase
             testCase.assertEqual(array.Tracks(1), expectedData);
             
         end  
+
+        function updateTrack_appendToEnd_frameSkip(testCase)
+            %Update by adding frame to the start
+            %This test defines the expected output structure.
+
+            array = TrackArray;
+
+            %Add some data
+            testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], 'Classification', 'Blue');
+            array = addTrack(array, 1, testdata);
+
+            %Update the data
+            testdata2 = struct('Length', 100, 'PxIdxList', [30 10], 'Color', 'Yellow');
+            array = updateTrack(array, 1, 5, testdata2);
+
+
+            expectedData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN, ...
+                'Frames', [1 2 3 4 5]);
+            expectedData.Data.Length = {10, [], [], [], 100};
+            expectedData.Data.PxIdxList = {[10, 20 30], [], [], [], [30 10]};
+            expectedData.Data.Classification = {'Blue', [], [], [], []};
+            expectedData.Data.Color = {[], [], [], [], 'Yellow'};
+
+            testCase.assertEqual(array.Tracks(1), expectedData);
+
+        end
         
         function updateTrack_motherDaughterIDs(testCase)
             

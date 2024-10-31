@@ -254,11 +254,13 @@ classdef TrackArray
                 inputFields = fieldnames(trackData);
                 notUpdated = find(~ismember(currDataFields, inputFields));
                 
-                if frame < obj.Tracks(trackIndex).Frames(1)                    
+                if frame < obj.Tracks(trackIndex).Frames(1)
                     %Add data to the start of the track
                     
+                    numNewFrames = obj.Tracks(trackIndex).Frames - frame;
+
                     %Update frames
-                    obj.Tracks(trackIndex).Frames = [frame, obj.Tracks(trackIndex).Frames];
+                    obj.Tracks(trackIndex).Frames = [frame:(obj.Tracks(trackIndex).Frames - 1), obj.Tracks(trackIndex).Frames];
 
                     for iP = 1:numel(inputFields)
                         if ~ismember(inputFields{iP}, currDataFields)
@@ -268,9 +270,11 @@ classdef TrackArray
                             obj.Tracks(trackIndex).Data.(inputFields{iP}){1} = trackData(dataIdx).(inputFields{iP});
                             
                         else
+
                             %Append new data to the start
                             obj.Tracks(trackIndex).Data.(currDataFields{iP}) = ...
-                                [{trackData(dataIdx).(inputFields{iP})}, obj.Tracks(trackIndex).Data.(inputFields{iP})];
+                                [{trackData(dataIdx).(inputFields{iP})}, cell(1, numNewFrames - 1), obj.Tracks(trackIndex).Data.(inputFields{iP})];
+
                         end
                     end
                     
@@ -279,15 +283,17 @@ classdef TrackArray
                     if ~isempty(notUpdated)
                         for ii = notUpdated
                             obj.Tracks(trackIndex).Data.(currDataFields{ii}) = ...
-                                [{[]}, obj.Tracks(trackIndex).Data.(currDataFields{ii})];
+                                [{[]}, cell(1, numNewFrames - 1), obj.Tracks(trackIndex).Data.(currDataFields{ii})];
                         end
                     end
                     
                 elseif frame > obj.Tracks(trackIndex).Frames(end)
                     %Add data to the end of the track
                     
+                    numNewFrames = frame - obj.Tracks(trackIndex).Frames(end);
+
                     %Update frames
-                    obj.Tracks(trackIndex).Frames = [obj.Tracks(trackIndex).Frames, frame];
+                    obj.Tracks(trackIndex).Frames = [obj.Tracks(trackIndex).Frames, (obj.Tracks(trackIndex).Frames(end) + 1):frame];
 
                     for iP = 1:numel(inputFields)
                         if ~ismember(inputFields{iP}, currDataFields)
@@ -299,7 +305,7 @@ classdef TrackArray
                         else
                             
                             %Append new data to the end
-                            obj.Tracks(trackIndex).Data.(inputFields{iP}){end + 1} = ...
+                            obj.Tracks(trackIndex).Data.(inputFields{iP}){numel(obj.Tracks(trackIndex).Frames)} = ...
                                 trackData(dataIdx).(inputFields{iP});
                             
                         end
@@ -310,7 +316,7 @@ classdef TrackArray
                     if ~isempty(notUpdated)
                         for ii = notUpdated
                             obj.Tracks(trackIndex).Data.(currDataFields{ii}) = ...
-                                [obj.Tracks(trackIndex).Data.(currDataFields{ii}), {[]}];
+                                [obj.Tracks(trackIndex).Data.(currDataFields{ii}), cell(1, numNewFrames)];
                         end
                     end
                     
@@ -566,25 +572,41 @@ classdef TrackArray
             
         end
         
-        function obj = joinTrack(obj, trackID_one, trackID_two)
+        function obj = joinTrack(obj, trackID_one, trackID_two, varargin)
             %JOINTRACK  Join two tracks
             %
             %  OBJ = JOINTRACK(OBJ, TRACK1_ID, TRACK2_ID) joins the data
             %  from TRACK2_ID into TRACK1_ID. TRACK2 will be deleted after
-            %  joining.
+            %  joining. Note that TRACK1 and TRACK2 must be independent,
+            %  i.e. they do not have data in the same frames for joining to
+            %  occur.
+            %
+            %  OBJ = JOINTRACK(OBJ, TRACK1_ID, TRACK2_ID, 'true') will
+            %  force the tracks to be joined regardles of whether or not
+            %  they are independent. In this case, the data from TRACK2
+            %  will overwrite TRACK1 in overlapping frames.
+
+            if isempty(varargin)
+                forceJoin = false;
+            else
+                forceJoin = varargin{1};
+            end
 
             trIdx1 = findtrack(obj, trackID_one, true);
             trIdx2 = findtrack(obj, trackID_two, true);
 
             %Check if tracks overlap in frames
-            if any(ismember( obj.Tracks(trIdx1).Frames, obj.Tracks(trIdx2).Frames))
-                error('TrackArray:joinTrack:OverlappingFrames', ...
-                    'Tracks %d and %d have information in the same frame.', ...
-                    trackID_one, trackID_two);
+            if ~forceJoin
+                if any(ismember( obj.Tracks(trIdx1).Frames, obj.Tracks(trIdx2).Frames))
+                    error('TrackArray:joinTrack:OverlappingFrames', ...
+                        'Cannot join tracks %d and %d as they have information in the same frame. You can force join instead.', ...
+                        trackID_one, trackID_two);
+                end
             end
 
             dataFields = fieldnames(obj.Tracks(trIdx2).Data);
             trackData = [];
+
             for iT = 1:numel(obj.Tracks(trIdx2).Frames)
                 for iP = 1:numel(dataFields)
                     if iT == 1
