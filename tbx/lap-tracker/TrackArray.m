@@ -264,8 +264,8 @@ classdef TrackArray
 
                     for iP = 1:numel(inputFields)
                         if ~ismember(inputFields{iP}, currDataFields)
-                            %Create new field and append empty matrices to
-                            %the rest of the data
+                            %For new fields, create an empty cell array
+                            %then update the first cell with the new data.
                             obj.Tracks(trackIndex).Data.(inputFields{iP}) = cell(1, numel(obj.Tracks(trackIndex).Frames));
                             obj.Tracks(trackIndex).Data.(inputFields{iP}){1} = trackData(dataIdx).(inputFields{iP});
                             
@@ -311,8 +311,8 @@ classdef TrackArray
                         end
                     end
                     
-                    %Append empty matrices to any fields that were not
-                    %assigned new data
+                    %For fields which already exist in the track but is not
+                    %present in the new data, add blank cells as needed.
                     if ~isempty(notUpdated)
                         for ii = notUpdated
                             obj.Tracks(trackIndex).Data.(currDataFields{ii}) = ...
@@ -351,8 +351,7 @@ classdef TrackArray
 %                         obj.Tracks(trackIndex).(existingFields{ii}) = ...
 %                             [obj.Tracks(trackIndex).(existingFields{ii}), {[]}];
 %                     end
-%                     
-                    
+                   
                 end
             
             end
@@ -537,13 +536,15 @@ classdef TrackArray
                                 catch
                                     keyboard
                                 end
-                                
-                                tmp{cellfun(@isempty, tmp)} = NaN(1, nzSize);
+
+                                [tmp{cellfun(@isempty, tmp)}] = deal(NaN(1, nzSize));
+
                             end
                             
                             %Reformat into a matrix
                             trackOut.(datafields{iP}) = ...
                                 cell2mat(tmp');
+
                             continue;
                         end
                     end

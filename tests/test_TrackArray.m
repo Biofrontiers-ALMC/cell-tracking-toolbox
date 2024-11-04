@@ -101,11 +101,13 @@ classdef test_TrackArray < matlab.unittest.TestCase
             array = TrackArray;
             
             %Add some data
-            testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], 'Classification', 'Blue');
+            testdata = struct('Length', 10, 'PxIdxList', [10, 20 30], ...
+                'Classification', 'Blue', 'MixedData', 'String');
             array = addTrack(array, 5, testdata);
             
             %Update the data
-            testdata2 = struct('Length', 100, 'PxIdxList', [30 10], 'Color', 'Yellow');
+            testdata2 = struct('Length', 100, 'PxIdxList', [30 10], ...
+                'Color', 'Yellow', 'MixedData', [1 2 3]);
             array = updateTrack(array, 1, 1, testdata2);
             
             
@@ -118,8 +120,26 @@ classdef test_TrackArray < matlab.unittest.TestCase
             expectedData.Data.PxIdxList = {[30 10], [], [], [], [10, 20 30]};
             expectedData.Data.Classification = {[], [], [], [], 'Blue'};
             expectedData.Data.Color = {'Yellow', [], [], [], []};
+            expectedData.Data.MixedData = {[1 2 3], [], [], [], 'String'};
                 
             testCase.assertEqual(array.Tracks(1), expectedData);
+
+            %Check that getTrack still works
+
+            trackdata = getTrack(array, 1);
+
+            expectedStructData = struct(...
+                'ID', 1, ...
+                'MotherID', NaN, ...
+                'DaughterID', NaN);
+            expectedStructData.Frames = [1 2 3 4 5];
+            expectedStructData.Length = [100; NaN; NaN; NaN; 10];
+            expectedStructData.PxIdxList = {[30 10], [], [], [], [10, 20 30]};
+            expectedStructData.Classification = {[], [], [], [], 'Blue'};
+            expectedStructData.Color = {'Yellow', [], [], [], []};
+            expectedStructData.MixedData = {[1 2 3], [], [], [], 'String'};
+
+            testCase.assertEqual(trackdata, expectedStructData)
             
         end
 
