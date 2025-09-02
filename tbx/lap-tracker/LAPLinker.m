@@ -215,7 +215,7 @@ classdef LAPLinker
 
                 for acTr = 1:numel(obj.activeTrackIDs)
                     lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.LinkedBy){end};
-                    cost_to_link(acTr, :) = LAPLinker.computecost(lastTrackData, newLinkData, obj.LinkCostMetric);
+                      cost_to_link(acTr, :) = LAPLinker.computecost(lastTrackData, newLinkData, obj.LinkCostMetric);
                 end
                 cost_to_link(cost_to_link < min(obj.LinkScoreRange) | cost_to_link > max(obj.LinkScoreRange)) = Inf;
 
@@ -319,7 +319,11 @@ classdef LAPLinker
                                         %Check data with previous frame
                                         if ~strcmpi(obj.DivisionParameter, 'mitosis')
                                             lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.(obj.DivisionParameter){end - 1};
+                                            try
                                             cost_to_divide(acTr) = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).(obj.DivisionParameter)}, obj.DivisionScoreMetric);
+                                            catch
+                                                keyboard
+                                            end
                                         else
 
                                             %Hack to include distance and
@@ -331,7 +335,16 @@ classdef LAPLinker
                                             %nearby that could serve as a
                                             %mother cell
                                             lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.Centroid{end - 1};
-                                            distance = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).Centroid}, 'euclidean');
+                                            if ~isempty(lastTrackData)
+                                                try
+                                                    distance = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).Centroid}, 'euclidean');
+                                                catch
+                                                    keyboard
+                                                end
+                                            else
+                                                distance = Inf;
+                                            end
+
 
                                             %Hard code: 50 px max distance
                                             if distance > 50
@@ -341,7 +354,11 @@ classdef LAPLinker
                                             %Check if current size is
                                             %similar to this cell
                                             lastTrackData = obj.tracks.Tracks(obj.activeTrackIDs(acTr)).Data.Area{end};
+                                            try
                                             areaDiff = LAPLinker.computecost(lastTrackData, {newData(rowsol(iSol)).Area}, 'ratio');
+                                            catch
+                                                keyboard
+                                            end
 
                                             %Hard code: Max difference in
                                             %size = 60%
